@@ -272,3 +272,14 @@ Use these values when deciding whether to proceed with the next implementation s
 .\scripts\verify.ps1 -ApiOnly -NoRuff
 ```
 
+## Operational readiness
+
+Run the service first, then use these commands:
+
+```powershell
+.\scripts\preflight.ps1
+.\scripts\smoke.ps1
+.\scripts\release-readiness.ps1
+.\scripts\release-readiness.ps1 -SkipVerify
+```
+
