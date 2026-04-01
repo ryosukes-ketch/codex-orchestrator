@@ -262,3 +262,13 @@ Use these values when deciding whether to proceed with the next implementation s
 ## Safety
 - No real secrets are stored or required for baseline operation.
 - `.env.example` only; real keys are optional and not used by default flow.
+
+## Local verification
+
+```powershell
+.\scripts\verify.ps1
+.\scripts\verify.ps1 -ApiOnly
+.\scripts\verify.ps1 -NoRuff
+.\scripts\verify.ps1 -ApiOnly -NoRuff
+```
+
