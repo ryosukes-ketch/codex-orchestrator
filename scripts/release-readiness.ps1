@@ -7,6 +7,7 @@ param(
     [string]$RevisionProjectId = "",
     [string]$ReplanningProjectId = "",
     [string]$LogDir = "logs\operational-readiness",
+    [switch]$AutoSeedFullFlow,
     [switch]$SkipLiveSmoke,
     [switch]$SkipSmoke,
     [switch]$SkipResilience,
@@ -23,8 +24,13 @@ Write-Host "[1/5] Preflight"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 if (-not $SkipLiveSmoke) {
-    Write-Host "[2/5] Live smoke"
-    & (Join-Path $repoRoot "scripts\live-smoke.ps1") -ApiBaseUrl $ApiBaseUrl -Authorization $Authorization -ProjectId $ProjectId -ApprovalProjectId $ApprovalProjectId -RejectProjectId $RejectProjectId -RevisionProjectId $RevisionProjectId -ReplanningProjectId $ReplanningProjectId -LogDir $LogDir -SkipPreflight
+    if ($AutoSeedFullFlow) {
+        Write-Host "[2/5] Live smoke with automatic seeds"
+        & (Join-Path $repoRoot "scripts\full-live-flow.ps1") -ApiBaseUrl $ApiBaseUrl -Authorization $Authorization -LogDir $LogDir -SkipPreflight
+    } else {
+        Write-Host "[2/5] Live smoke"
+        & (Join-Path $repoRoot "scripts\live-smoke.ps1") -ApiBaseUrl $ApiBaseUrl -Authorization $Authorization -ProjectId $ProjectId -ApprovalProjectId $ApprovalProjectId -RejectProjectId $RejectProjectId -RevisionProjectId $RevisionProjectId -ReplanningProjectId $ReplanningProjectId -LogDir $LogDir -SkipPreflight
+    }
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
