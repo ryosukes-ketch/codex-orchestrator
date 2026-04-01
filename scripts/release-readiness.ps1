@@ -1,6 +1,12 @@
 param(
     [string]$ApiBaseUrl = "http://127.0.0.1:8000",
+    [string]$Authorization = "Bearer dev-approver-token",
     [string]$ProjectId = "",
+    [string]$ApprovalProjectId = "",
+    [string]$RejectProjectId = "",
+    [string]$RevisionProjectId = "",
+    [string]$ReplanningProjectId = "",
+    [string]$LogDir = "logs\operational-readiness",
     [switch]$SkipLiveSmoke,
     [switch]$SkipSmoke,
     [switch]$SkipResilience,
@@ -18,7 +24,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 if (-not $SkipLiveSmoke) {
     Write-Host "[2/5] Live smoke"
-    & (Join-Path $repoRoot "scripts\live-smoke.ps1") -ApiBaseUrl $ApiBaseUrl -ProjectId $ProjectId -SkipPreflight
+    & (Join-Path $repoRoot "scripts\live-smoke.ps1") -ApiBaseUrl $ApiBaseUrl -Authorization $Authorization -ProjectId $ProjectId -ApprovalProjectId $ApprovalProjectId -RejectProjectId $RejectProjectId -RevisionProjectId $RevisionProjectId -ReplanningProjectId $ReplanningProjectId -LogDir $LogDir -SkipPreflight
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
