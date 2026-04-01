@@ -96,3 +96,9 @@ Template for recording actual staging execution in a repeatable, reviewable form
 - 2026-04-01 lint修正: tests/test_orchestrator.py の approval uniqueness assert を改行して E501 を解消。pytest -q / ruff check . の再通過を確認。
 
 - 2026-04-01 line ending hygiene: .gitattributes を追加して LF/CRLF を固定。git add --renormalize . 実施後、pytest -q / ruff check . を通過確認。
+
+- 2026-04-01 18:08:50 full live flow確認: .\scripts\live-smoke.ps1 / .\scripts\release-readiness.ps1 -SkipVerify を実行。
+  approval project_id=539bd928-4b5b-4c96-b6b4-5ac7cf132b73
+  reject/revision/replanning project_id=db745c1b-de43-4dcd-a8d5-c891eba9a41a
+  Authorization=Bearer dev-approver-token
+  結果: successful full live flow smoke

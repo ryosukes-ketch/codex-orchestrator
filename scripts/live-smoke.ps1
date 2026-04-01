@@ -150,9 +150,9 @@ $flows = @(
         ProjectId = $ApprovalProjectId
         Path = "/orchestrator/resume/approval"
         Body = {
-            param($pid)
+            param($projectIdArg)
             @{
-                project_id = $pid
+                project_id = $projectIdArg
                 approved_actions = @("external_api_send")
                 actor = @{
                     actor_id = "u-1"
@@ -169,9 +169,9 @@ $flows = @(
         ProjectId = $RejectProjectId
         Path = "/orchestrator/approval/reject"
         Body = {
-            param($pid)
+            param($projectIdArg)
             @{
-                project_id = $pid
+                project_id = $projectIdArg
                 rejected_actions = @("external_api_send")
                 actor = @{
                     actor_id = "u-2"
@@ -188,9 +188,9 @@ $flows = @(
         ProjectId = $RevisionProjectId
         Path = "/orchestrator/resume/revision"
         Body = {
-            param($pid)
+            param($projectIdArg)
             @{
-                project_id = $pid
+                project_id = $projectIdArg
                 resume_mode = "replanning"
                 actor = @{
                     actor_id = "u-3"
@@ -208,9 +208,9 @@ $flows = @(
         ProjectId = $ReplanningProjectId
         Path = "/orchestrator/replanning/start"
         Body = {
-            param($pid)
+            param($projectIdArg)
             @{
-                project_id = $pid
+                project_id = $projectIdArg
                 actor = @{
                     actor_id = "u-3"
                     actor_role = "operator"
@@ -302,4 +302,3 @@ if (-not $NoRuff) {
 }
 
 Write-Host "[done] live smoke passed"
-
