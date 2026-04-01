@@ -278,11 +278,13 @@ Run the service first, then use these commands:
 
 ```powershell
 .\scripts\preflight.ps1
+.\scripts\live-smoke.ps1
+.\scripts\live-smoke.ps1 -ProjectId your-project-id
 .\scripts\smoke.ps1
 .\scripts\resilience.ps1
 .\scripts\release-readiness.ps1
+.\scripts\release-readiness.ps1 -ProjectId your-project-id
 .\scripts\release-readiness.ps1 -SkipVerify
-.\scripts\release-readiness.ps1 -SkipResilience
 ```
 
 
