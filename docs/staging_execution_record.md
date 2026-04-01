@@ -88,3 +88,5 @@ Template for recording actual staging execution in a repeatable, reviewable form
 - 2026-03-31 dry_run_orchestration改行正規化回帰テスト修正: CurrentBriefArtifact の内部構造依存をやめ、model_dump_json() に対する文字列検証へ変更。pytest -q / ruff check . を再通過確認。
 
 - 2026-03-31 バックアップ整理: *.bak_* を削除。削除後に pytest -q / ruff check . を再実行し、グリーン維持を確認。
+
+- 2026-04-01 approval request uniqueness固定: partial idempotent API test に approval_requested / approvals の action_type 重複なし assert を追加。pytest -q tests/test_api.py / pytest -q / ruff check . を通過確認。

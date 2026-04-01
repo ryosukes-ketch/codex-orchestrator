@@ -246,6 +246,23 @@ def test_resume_approval_endpoint_repeated_after_completion_is_idempotent() -> N
     ]
     assert len(approval_checkpoints) == 1
 
+    approval_requested_events = [
+        event
+        for event in audit.json()["events"]
+        if event["event_type"] == "approval_requested"
+    ]
+    requested_action_types = [
+        event["metadata"].get("action_type")
+        for event in approval_requested_events
+    ]
+    assert len(requested_action_types) == len(set(requested_action_types))
+
+    approval_action_types = [
+        approval["action_type"]
+        for approval in audit.json()["approvals"]
+    ]
+    assert len(approval_action_types) == len(set(approval_action_types))
+
 
 def test_resume_approval_accepts_whitespace_wrapped_action_names() -> None:
     waiting = client.post(
@@ -1474,3 +1491,4 @@ def test_project_policy_override_allows_listed_actor() -> None:
     )
     assert resumed.status_code == 200
     assert resumed.json()["summary"]["status"] == "completed"
+
