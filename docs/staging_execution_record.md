@@ -102,3 +102,11 @@ Template for recording actual staging execution in a repeatable, reviewable form
   reject/revision/replanning project_id=db745c1b-de43-4dcd-a8d5-c891eba9a41a
   Authorization=Bearer dev-approver-token
   結果: successful full live flow smoke
+
+- 2026-04-01 18:14:16 full live flow再検証: 旧ID 539bd928-4b5b-4c96-b6b4-5ac7cf132b73 / db745c1b-de43-4dcd-a8d5-c891eba9a41a は audit 404 のため現行サーバー状態では再利用不可。
+  approval old project_id=539bd928-4b5b-4c96-b6b4-5ac7cf132b73
+  reject/revision/replanning old project_id=db745c1b-de43-4dcd-a8d5-c891eba9a41a
+  approval seed project_id=c216da0c-3081-4984-b7f4-b6944acaff3b status=completed
+  recovery seed project_id=b0fd49e8-c0b2-4d8e-98ec-5a957e11cdd3 status=revision_requested
+  Authorization=Bearer dev-approver-token
+  結果: failed full live flow smoke with fresh seed projects: Flow failed for resume-approval: 409 {"detail":"Project is not in waiting_approval state (current: completed)."}
