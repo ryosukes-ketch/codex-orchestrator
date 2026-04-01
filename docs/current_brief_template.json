@@ -1,0 +1,30 @@
+{
+  "brief_id": "brief_20260324_001",
+  "project_id": "project_001",
+  "active_phase": "phase_4",
+  "current_task": "Describe the current concrete task in one sentence.",
+  "requested_scope": [
+    "List explicitly requested items only."
+  ],
+  "out_of_scope": [
+    "List explicitly excluded items."
+  ],
+  "department_context": {
+    "origin_department": "intake_department",
+    "candidate_routing": "progress_control_department",
+    "ownership_boundary_note": "Intake clarifies requirements but does not approve risky continuation."
+  },
+  "risk_snapshot": {
+    "risk_level": "low",
+    "hard_gate_triggered": false,
+    "hard_gate_triggers": [],
+    "escalation_likely_required": false
+  },
+  "proposed_action": {
+    "summary": "Smallest safe next change.",
+    "verification_plan": [
+      "Smallest relevant verification command(s)."
+    ]
+  }
+}
+

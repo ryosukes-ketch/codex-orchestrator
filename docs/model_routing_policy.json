@@ -1,0 +1,53 @@
+{
+  "version": "1.0",
+  "scope": "repository-governance",
+  "principles": [
+    "hard_gate_first",
+    "latest_alias_advisory_only",
+    "management_final_authority_for_non_trivial_governance"
+  ],
+  "models": {
+    "gemini-flash-lite-latest": {
+      "class": "cheap_action_model",
+      "allowed_use_cases": [
+        "low_risk_extraction",
+        "low_risk_classification",
+        "draft_summarization",
+        "candidate_generation"
+      ],
+      "prohibited_use_cases": [
+        "final_governance_decision",
+        "auth_approval_policy_audit_authorization",
+        "hard_gate_override",
+        "production_affecting_approval"
+      ],
+      "authority": "advisory_only"
+    },
+    "gemini-flash-latest": {
+      "class": "cheap_action_model",
+      "allowed_use_cases": [
+        "low_risk_research_draft",
+        "structured_proposal_draft",
+        "non_authoritative_risk_hint"
+      ],
+      "prohibited_use_cases": [
+        "final_governance_decision",
+        "hard_gate_override",
+        "roadmap_or_architecture_reinterpretation_authority",
+        "production_affecting_approval"
+      ],
+      "authority": "advisory_only"
+    }
+  },
+  "escalation_requirements": {
+    "trigger_review_when": [
+      "hard_gate_triggered",
+      "auth_or_approval_or_policy_or_audit_risk_detected",
+      "schema_or_dependency_change_required",
+      "cross_department_ambiguity",
+      "security_boundary_change"
+    ],
+    "final_authority": "management_department"
+  }
+}
+

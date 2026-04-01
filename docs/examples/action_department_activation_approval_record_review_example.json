@@ -1,0 +1,56 @@
+{
+  "approval_record_id": "act_approval_20260325_003",
+  "activation_review_item_id": "activation_review_20260325_003",
+  "activation_target": {
+    "department": "action_department",
+    "provider_use_mode": "limited_live_provider_use",
+    "provider_aliases": [
+      "gemini-flash-lite-latest",
+      "gemini-flash-latest"
+    ]
+  },
+  "activation_scope": {
+    "allowed_use_cases": [
+      "low-risk extraction",
+      "draft summarization for management artifacts"
+    ],
+    "excluded_use_cases": [
+      "auth/approval/policy/audit decisions",
+      "automatic autonomous continuation"
+    ]
+  },
+  "human_approval_status": {
+    "status": "withheld",
+    "checkpoint": "limited_live_provider_use_activation",
+    "approver_id": "human-ops-02",
+    "note": "Approval withheld due to unresolved governance risk."
+  },
+  "management_review_status": {
+    "status": "completed",
+    "reviewer_id": "mgmt-sonnet",
+    "reviewer_type": "model",
+    "review_outcome": "REVIEW",
+    "note": "Escalate to Audit and Review Department for unresolved blocker set."
+  },
+  "recommendation": "REVIEW",
+  "autonomous_continuation_status": "not_approved",
+  "autonomous_continuation_note": "Autonomous continuation remains not approved unless explicitly approved through the required governance process.",
+  "retained_constraints": [
+    "latest-alias outputs remain advisory-only for risky work",
+    "no live provider activation while hard-gate concerns remain unresolved"
+  ],
+  "blocker_notes": [
+    "Cross-department ownership ambiguity remains unresolved.",
+    "Rollback/disable procedure evidence is incomplete."
+  ],
+  "rollback_disable_expectation": "Do not activate limited live provider use; maintain disabled state and route all related work through REVIEW escalation.",
+  "follow_up_actions_before_broader_live_use": [
+    "Resolve cross-department ownership and escalation destination.",
+    "Complete rollback/disable procedure review with management sign-off."
+  ],
+  "related_project_id": "project_001",
+  "related_activation_decision_id": "act_decision_20260325_001",
+  "related_packet_id": "packet_20260325_001",
+  "related_queue_item_id": "rq_20260325_001",
+  "rationale": "Governance blockers require formal review and escalation before any activation consideration."
+}

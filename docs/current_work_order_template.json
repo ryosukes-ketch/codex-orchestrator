@@ -1,0 +1,37 @@
+{
+  "work_order_id": "wo_20260324_001",
+  "project_id": "project_001",
+  "title": "Short execution title",
+  "objective": "Implement the smallest approved change only.",
+  "assigned_department": "implementation_department",
+  "inputs": {
+    "task_summary": "Concrete task to execute.",
+    "required_files": [
+      "docs/example.md"
+    ],
+    "optional_files": [],
+    "constraints": [
+      "No new dependencies",
+      "No auth/approval/policy/audit behavior change"
+    ]
+  },
+  "governance": {
+    "decision_outcome": "GO",
+    "risk_level": "low",
+    "hard_gate_triggers": [],
+    "escalation_reason": "none",
+    "management_review_required": false
+  },
+  "verification": {
+    "commands": [
+      "python -m pytest -q tests/test_continuation.py"
+    ],
+    "expected_result": "pass"
+  },
+  "completion_criteria": [
+    "Requested artifact exists",
+    "No unrelated code change",
+    "Verification passed"
+  ]
+}
+

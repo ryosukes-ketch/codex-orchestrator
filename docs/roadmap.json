@@ -1,0 +1,68 @@
+{
+  "current_phase": "phase_4",
+  "phases": [
+    {
+      "id": "phase_1",
+      "name": "docs and architecture baseline",
+      "status": "done"
+    },
+    {
+      "id": "phase_2",
+      "name": "core implementation baseline",
+      "status": "done"
+    },
+    {
+      "id": "phase_3",
+      "name": "verification baseline",
+      "status": "done"
+    },
+    {
+      "id": "phase_4",
+      "name": "production-hardening for continuation workflow",
+      "status": "active",
+      "goals": [
+        "Preserve the authenticated approval model",
+        "Strengthen structured decision-making for continuation",
+        "Add reusable Codex workflow guidance",
+        "Improve safe autonomous implementation loops"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p4_t1",
+          "title": "Add Codex repo guidance files",
+          "status": "done"
+        },
+        {
+          "id": "p4_t2",
+          "title": "Add direction guard and roadmap artifacts",
+          "status": "done"
+        },
+        {
+          "id": "p4_t3",
+          "title": "Add continue-workflow skill",
+          "status": "done"
+        },
+        {
+          "id": "p4_t4",
+          "title": "Document GO/PAUSE/REVIEW rules in README",
+          "status": "done"
+        },
+        {
+          "id": "p4_t5",
+          "title": "Add targeted tests for continuation decision helpers if implemented",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "phase_5",
+      "name": "auth hardening and policy operations",
+      "status": "planned",
+      "goals": [
+        "Move from dev token mapping to JWT/OIDC validation",
+        "Add policy management validation and auditability",
+        "Prepare body actor deprecation"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "item_id": "rq_20260325_001",
+  "decision": "REVIEW",
+  "reviewer_id": "mgmt-sonnet",
+  "reviewer_type": "model",
+  "rationale": "Approval-flow semantics are in scope; hard-gate review is required.",
+  "constraints": [
+    "No auth/approval runtime behavior change without explicit review approval."
+  ],
+  "follow_up_notes": [
+    "Escalate to Audit and Review Department before continuation."
+  ],
+  "approved_next_action": "Prepare a narrow docs/test-only patch and re-submit.",
+  "decided_at": "2026-03-25T12:00:00Z",
+  "related_project_id": "project_001",
+  "related_queue_item_id": "rq_20260325_001",
+  "related_packet_id": "packet_20260325_001"
+}
+

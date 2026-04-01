@@ -1,0 +1,59 @@
+{
+  "approval_record_id": "act_approval_20260325_001",
+  "activation_review_item_id": "activation_review_20260325_001",
+  "activation_target": {
+    "department": "action_department",
+    "provider_use_mode": "limited_live_provider_use",
+    "provider_aliases": [
+      "gemini-flash-lite-latest",
+      "gemini-flash-latest"
+    ]
+  },
+  "activation_scope": {
+    "allowed_use_cases": [
+      "low-risk extraction",
+      "low-risk classification",
+      "draft summarization for management review artifacts"
+    ],
+    "excluded_use_cases": [
+      "final authority for risky continuation",
+      "auth/approval/policy/audit decisions",
+      "automatic autonomous continuation"
+    ]
+  },
+  "human_approval_status": {
+    "status": "approved",
+    "checkpoint": "limited_live_provider_use_activation",
+    "approver_id": "human-ops-01",
+    "approved_at": "2026-03-25T14:30:00Z",
+    "note": "Approved only for limited scope with strict guardrails."
+  },
+  "management_review_status": {
+    "status": "completed",
+    "reviewer_id": "mgmt-sonnet",
+    "reviewer_type": "model",
+    "review_outcome": "GO",
+    "note": "GO for limited activation review path only."
+  },
+  "recommendation": "GO",
+  "autonomous_continuation_status": "not_approved",
+  "autonomous_continuation_note": "Autonomous continuation remains not approved unless explicitly approved through the required governance process.",
+  "retained_constraints": [
+    "latest-alias outputs remain advisory-only for risky work",
+    "hard-gate-first REVIEW escalation remains mandatory",
+    "external sends and production-impacting actions remain separately approval-gated"
+  ],
+  "blocker_notes": [],
+  "rollback_disable_expectation": "If any guardrail fails, disable limited live provider use immediately and route work to REVIEW.",
+  "follow_up_actions_before_broader_live_use": [
+    "Complete authn/policy hardening backlog",
+    "Run rollback drills for limited live provider incidents",
+    "Document broadened live-use criteria with Management + Audit sign-off"
+  ],
+  "related_project_id": "project_001",
+  "related_activation_decision_id": "act_decision_20260325_001",
+  "related_packet_id": "packet_20260325_001",
+  "related_queue_item_id": "rq_20260325_001",
+  "rationale": "Limited activation is acceptable only under explicit human checkpoint and retained constraints.",
+  "approval_timestamp": "2026-03-25T14:30:00Z"
+}

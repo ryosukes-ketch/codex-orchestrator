@@ -1,0 +1,30 @@
+{
+  "packet_id": "packet_20260325_001",
+  "project_id": "project_001",
+  "brief_id": "brief_001",
+  "current_task": "Evaluate approval flow change request",
+  "summarized_brief": {
+    "requested_scope": [
+      "Clarify approval-flow impact and safe continuation path."
+    ],
+    "out_of_scope": [
+      "Live auth behavior changes in this step."
+    ],
+    "missing_fields": [],
+    "clarifying_questions": []
+  },
+  "risk_level": "high",
+  "department_routing_recommendation": "management_department",
+  "hard_gate_status": true,
+  "hard_gate_triggers": [
+    "approval_flow_change"
+  ],
+  "escalation_reasons": [
+    "hard_gate_triggered",
+    "cross_department_routing"
+  ],
+  "proposed_next_action": "Route to Management + Audit review before any runtime approval-flow implementation.",
+  "recommendation": "REVIEW",
+  "required_review": true,
+  "work_order_id": "wo_001"
+}

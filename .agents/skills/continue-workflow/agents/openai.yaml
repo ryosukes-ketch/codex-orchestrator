@@ -1,0 +1,7 @@
+interface:
+  display_name: "Continue Workflow"
+  short_description: "Safely continue work using roadmap and direction guard"
+  default_prompt: "Use the continue-workflow skill to decide whether work should continue."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,56 @@
+{
+  "activation_decision_id": "act_decision_20260325_001",
+  "activation_target": {
+    "department": "action_department",
+    "provider_use_mode": "limited_live_provider_use",
+    "provider_aliases": [
+      "gemini-flash-lite-latest",
+      "gemini-flash-latest"
+    ]
+  },
+  "activation_scope": {
+    "allowed_use_cases": [
+      "low-risk extraction",
+      "low-risk classification",
+      "draft summarization for review packet preparation"
+    ],
+    "excluded_use_cases": [
+      "final GO authority for risky tasks",
+      "auth/approval/policy/audit decisions",
+      "autonomous execution authorization"
+    ]
+  },
+  "preconditions_satisfied": [
+    "management_readiness_checklist pre-operation gate reviewed",
+    "model_governance_policy pre-live guard reviewed",
+    "review packet/queue/decision handoff artifacts are present",
+    "mock/stub validation completed for same task shape"
+  ],
+  "remaining_blockers": [],
+  "human_approvals_recorded": [
+    {
+      "checkpoint": "limited_live_provider_use_activation",
+      "status": "approved",
+      "approver_id": "mgmt-sonnet",
+      "approver_type": "model",
+      "approved_at": "2026-03-25T13:30:00Z",
+      "note": "Approved for limited scope only with hard-gate-first enforcement."
+    }
+  ],
+  "recommendation": "GO",
+  "autonomous_continuation_status": "not_approved",
+  "autonomous_continuation_note": "Autonomous continuation remains not approved unless explicitly approved through the required governance process.",
+  "rollback_disable_expectation": "If any guardrail fails, disable limited live provider use immediately and route work to REVIEW.",
+  "follow_up_actions_before_broader_live_use": [
+    "Complete stronger authn and policy operations hardening",
+    "Validate rollback drills for live provider incidents",
+    "Document broadened live-use criteria with Management + Audit review"
+  ],
+  "related_project_id": "project_001",
+  "related_packet_id": "packet_20260325_001",
+  "related_queue_item_id": "rq_20260325_001",
+  "reviewer_id": "mgmt-sonnet",
+  "reviewer_type": "model",
+  "rationale": "Limited scope can start under strict advisory-only and hard-gate constraints.",
+  "decided_at": "2026-03-25T13:30:00Z"
+}

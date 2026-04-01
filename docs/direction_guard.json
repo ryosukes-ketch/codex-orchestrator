@@ -1,0 +1,51 @@
+{
+  "project_name": "structured-ai-work-system",
+  "source_of_truth": [
+    "docs/architecture.md",
+    "docs/implementation-plan.md",
+    "README.md"
+  ],
+  "core_direction": [
+    "Separate Intake AI from Orchestrator",
+    "Use specialist agents for research, design, build, review, and trend analysis",
+    "Keep external providers behind adapters",
+    "Treat authn, authz, approval, policy, and audit as first-class concerns",
+    "Favor small safe increments over broad speculative refactors"
+  ],
+  "must_preserve": [
+    "Authenticated actor resolution on protected approval endpoints",
+    "Server-side actor authority over client-provided actor fields",
+    "Project-level policy override model",
+    "Audit visibility for authentication, authorization, override, and approval decisions",
+    "Backward-compatible behavior unless a deprecation is explicitly documented"
+  ],
+  "do_not_do": [
+    "Do not merge Intake and Orchestrator responsibilities",
+    "Do not let provider-specific logic leak into core orchestration",
+    "Do not weaken strict_mode or policy enforcement silently",
+    "Do not add new infrastructure or dependencies without justification",
+    "Do not change schema or migration behavior without review",
+    "Do not replace tested behavior with speculative redesign"
+  ],
+  "continue_if": [
+    "Tests for the touched area pass",
+    "The change fits the current roadmap phase",
+    "No architecture break is required",
+    "No auth/policy/security boundary changes are required",
+    "No new dependency is required"
+  ],
+  "pause_if": [
+    "Verification fails and root cause is not yet isolated",
+    "The next step is unclear from roadmap and codebase",
+    "The change risks regression in approval, auth, or audit flows"
+  ],
+  "review_if": [
+    "A roadmap change is needed",
+    "A phase change is needed",
+    "A dependency must be added",
+    "A database migration is needed",
+    "Auth, approval, or policy behavior must change",
+    "The code suggests a larger architectural mismatch"
+  ],
+  "decision_values": ["GO", "PAUSE", "REVIEW"]
+}

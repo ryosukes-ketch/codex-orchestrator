@@ -1,0 +1,23 @@
+{
+  "item_id": "rq_20260325_001",
+  "current_task": "Evaluate approval flow change request",
+  "risk_level": "high",
+  "department_routing": "management_department",
+  "hard_gate_status": true,
+  "hard_gate_triggers": [
+    "approval_flow_change"
+  ],
+  "escalation_reason": "hard_gate_triggered",
+  "escalation_reasons": [
+    "hard_gate_triggered",
+    "cross_department_routing"
+  ],
+  "recommendation": "REVIEW",
+  "review_status": "pending",
+  "related_project_id": "project_001",
+  "related_brief_id": "brief_001",
+  "related_work_order_id": "wo_001",
+  "created_at": "2026-03-25T09:00:00Z",
+  "updated_at": "2026-03-25T09:00:00Z",
+  "note": "Awaiting Management Department decision."
+}
