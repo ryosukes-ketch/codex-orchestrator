@@ -55,7 +55,7 @@ function Invoke-CurlJson {
 
     $statusLine = $lines[-1]
     if ($statusLine -notmatch "^__STATUS__:(\d+)$") {
-        throw "Could not parse status line for $Method $Url: $statusLine"
+        throw "Could not parse status line for $Method ${Url}: $statusLine"
     }
 
     $statusCode = [int]$Matches[1]
@@ -302,3 +302,4 @@ if (-not $NoRuff) {
 }
 
 Write-Host "[done] live smoke passed"
+
