@@ -274,6 +274,10 @@ Use these values when deciding whether to proceed with the next implementation s
 
 ## Operational readiness
 
+Read the detailed runbook here:
+
+- `docs/operational_readiness_runbook.md`
+
 Run the service first, then use these commands:
 
 ```powershell
@@ -288,5 +292,6 @@ Run the service first, then use these commands:
 .\scripts\release-readiness.ps1 -AutoSeedFullFlow -Authorization "Bearer dev-approver-token"
 .\scripts\release-readiness.ps1 -SkipVerify
 ```
+
 
 
