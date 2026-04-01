@@ -757,6 +757,17 @@ def test_resume_from_approval_repeated_partial_call_is_idempotent_without_duplic
     assert len(partial_resume_events) == 1
     assert len(approval_approved_events) == 1
 
+    approval_requested_events = [
+        event for event in audit.events if event.event_type == HistoryEventType.APPROVAL_REQUESTED
+    ]
+    requested_action_types = [
+        event.metadata.get("action_type")
+        for event in approval_requested_events
+    ]
+    assert len(requested_action_types) == len(set(requested_action_types))
+
+    approval_action_types = [approval.action_type.value for approval in audit.approvals]
+    assert len(approval_action_types) == len(set(approval_action_types))
 
 def test_resume_from_approval_partial_next_step_includes_all_remaining_actions() -> None:
     orchestrator = PMOrchestrator()
@@ -1276,3 +1287,5 @@ def test_record_event_deep_snapshots_nested_metadata_dictionary() -> None:
     metadata["outer"]["marker"] = "after"
 
     assert result.record.events[-1].metadata == {"outer": {"marker": "before"}}
+
+
