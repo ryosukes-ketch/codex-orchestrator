@@ -94,3 +94,5 @@ Template for recording actual staging execution in a repeatable, reviewable form
 - 2026-04-01 service層 approval uniqueness 固定: tests/test_orchestrator.py の partial idempotent test に approval_requested / approvals の action_type 重複なし assert を追加。tests/test_orchestrator.py / pytest -q / ruff check . を通過確認。
 
 - 2026-04-01 lint修正: tests/test_orchestrator.py の approval uniqueness assert を改行して E501 を解消。pytest -q / ruff check . の再通過を確認。
+
+- 2026-04-01 line ending hygiene: .gitattributes を追加して LF/CRLF を固定。git add --renormalize . 実施後、pytest -q / ruff check . を通過確認。
