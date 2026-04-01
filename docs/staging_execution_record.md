@@ -116,3 +116,10 @@ Template for recording actual staging execution in a repeatable, reviewable form
   recovery seed project_id=47d277f5-8cf7-4789-bf83-5c5052a8f1de status=revision_requested trend_provider=mock simulate_review_failure=true
   Authorization=Bearer dev-approver-token
   結果: failed full live flow smoke with deterministic approval/recovery seeds: Flow failed for approval-reject: 409 {"detail":"Cannot reject non-pending action(s): external_api_send"}
+
+- 2026-04-01 18:27:45 reject→revision→replanning live chain確認: fresh waiting_approval seed で実行。
+  project_id=75b8ff3a-1b84-4e5a-bd02-27edde7b3308
+  trend_provider=gemini-flash-lite-latest for reject seed
+  flow=approval/reject -> resume/revision -> replanning/start
+  Authorization=Bearer dev-approver-token
+  final_status=completed
