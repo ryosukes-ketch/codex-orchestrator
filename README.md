@@ -239,6 +239,13 @@ Local BLS-free smoke (single command):
 .\scripts\local-dev-smoke.ps1
 ```
 
+Optional read-only API surface check (requires running API server):
+
+```powershell
+python -m app.main api
+.\scripts\local-dev-smoke.ps1 -CheckReadOnlyApi -ApiBaseUrl http://127.0.0.1:8000
+```
+
 This runs:
 1. `seed-releases`
 2. `seed-actuals`
