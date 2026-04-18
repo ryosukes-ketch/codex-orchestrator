@@ -1,200 +1,46 @@
-# AI Work System Scaffold
+# Macro Release Scanner v1.0
 
-Minimal foundation for a role-separated AI work system:
-- Intake Agent (single user-facing window)
-- PM Orchestrator
-- Specialist departments (Research, Design, Build, Review, Trend)
-- External trend adapters (OpenAI, Gemini, Grok) as provider interfaces
-- Safe-by-default operations with mock fallback
+Macro Release Scanner is a production-oriented MVP for monitoring Kalshi macroeconomic release markets around official US data events.  
+It ingests official schedules and actual values, discovers relevant Kalshi markets from deterministic mappings, captures market snapshots, detects repricing signals, scores them, sends Telegram alerts, stores data in PostgreSQL, and supports replay/backfill evaluation workflows.
 
-## Why this repo
-This scaffold prioritizes:
-- clear responsibility boundaries
-- state/conversation separation
-- testability and future extension
-- easy handoff to other coding agents
+## Product Overview
 
-## Department-Based Governance Model
-This repository is operated as a department-based AI organization, not a single freeform agent.
+Supported release types in v1:
+- FOMC rate decision
+- CPI
+- NFP (Employment Situation headline nonfarm payrolls)
+- GDP advance estimate
 
-- Management Department
-  - owns user communication, ambiguity resolution, and medium/high-risk final approval
-- Progress Control Department
-  - applies hard gates first and decides `GO` / `PAUSE` / `REVIEW`
-- Action Department
-  - low-cost support for extraction/classification/drafting only
-  - cannot self-authorize risky continuation
-- Implementation Department
-  - performs approved code/docs/test changes
-- Audit and Review Department
-  - checks drift in auth/approval/policy/audit boundaries
+Signal families:
+- `PRE_RELEASE_PRESSURE`
+- `RELEASE_SHOCK`
+- `DELAYED_REPRICING`
 
-Hard-gate-sensitive work (auth, approval, policy, audit semantics, schema/migration, dependencies,
-security boundaries, architecture direction) must escalate to `REVIEW`.
+This system is not a trading bot. It does not place orders or recommend trades.
 
-## Project structure
-```text
-app/
-  intake/
-  orchestrator/
-  agents/
-  providers/
-  schemas/
-  state/
-  services/
-  api/
-tests/
-docs/
-```
+## Architecture Summary
 
-## Quick start
-1. Create and activate a virtual environment.
-2. Install:
-   - runtime: `pip install -e .`
-   - dev: `pip install -e .[dev]`
-   - with PostgreSQL support: `pip install -e .[postgres,dev]`
-3. Run API:
-   - `uvicorn app.api.main:app --reload`
-4. Run tests:
-   - `pytest`
+- `app/adapters`: external integrations (Kalshi, BLS, BEA, Fed, Telegram)
+- `app/services`: ingestion, polling, parsing, signal detection, scoring, notification, replay/backfill/evaluation
+- `app/services/monitoring_service.py`: operational anomaly detection, monitor event persistence, and critical monitor alerts
+- `app/db`: SQLAlchemy async models/repositories and Alembic migrations
+- `app/api`: minimal management and read endpoints
+- `app/domain`: enums and typed models
+- `config/market_mapping.yaml`: deterministic market mapping rules
 
-## State backend switch
-- Default: in-memory (`STATE_BACKEND=memory`)
-- PostgreSQL: set `STATE_BACKEND=postgres` and `DATABASE_URL`
-- Fallback behavior:
-  - when `STATE_BACKEND=postgres` but DB config/connection is unavailable,
-    repository falls back to in-memory unless `STATE_BACKEND_STRICT=true`
-  - malformed `STATE_BACKEND_STRICT` values fail-safe to strict behavior
+## Continuation Governance Artifacts
 
-## Trend provider strictness
-- `TREND_PROVIDER_STRICT=false` (default):
-  - unknown provider names fall back to `mock`
-- `TREND_PROVIDER_STRICT=true`:
-  - unknown provider names return conflict (`409`)
-- malformed `TREND_PROVIDER_STRICT` values fail-safe to strict behavior
+- `docs/current_brief_template.json`
+- `docs/current_work_order_template.json`
 
-## Dev authentication
-- Approval/Reject/Revision/Replanning APIs are authentication-required.
-- Auth source: `Authorization: Bearer <token>`.
-- Actor is resolved server-side from token; body `actor` is accepted for compatibility but not trusted.
-- Default dev tokens:
-  - `dev-owner-token`
-  - `dev-operator-token`
-  - `dev-approver-token`
-  - `dev-admin-token`
-  - `dev-viewer-token`
-- Override with `DEV_AUTH_TOKEN_SEED` in `.env`.
+Continuation decisions use `GO`, `PAUSE`, `REVIEW`.
 
-## Minimal API
-- `GET /health`
-- `POST /intake/brief`
-- `POST /orchestrator/run`
-- `POST /orchestrator/resume/approval`
-- `POST /orchestrator/approval/reject`
-- `POST /orchestrator/resume/revision`
-- `POST /orchestrator/replanning/start`
-- `GET /projects/{project_id}/audit`
-
-### Example intake request
-```bash
-curl -X POST http://127.0.0.1:8000/intake/brief \
-  -H "Content-Type: application/json" \
-  -d "{\"user_request\":\"Build an AI internal delivery platform\"}"
-```
-
-### Example orchestration request
-Use the `brief` returned by intake and send it to:
-`POST /orchestrator/run` with optional `"trend_provider": "mock|openai|gemini|grok"`.
-
-When using external trend providers (`openai/gemini/grok`), orchestration can enter
-`waiting_approval` unless `"approved_actions": ["external_api_send"]` is provided.
-
-### Approval-required actions
-- `external_api_send`
-- `destructive_change`
-- `bulk_modify`
-- `production_affecting_change`
-
-### Authorization (RBAC, MVP)
-- Roles:
-  - `owner`
-  - `operator`
-  - `approver`
-  - `admin`
-  - `viewer`
-- Rules:
-  - `viewer` cannot approve
-  - `approver` and `admin` can approve high-risk actions
-  - `production_affecting_change` is `admin` only
-- optional project-level actor allow-list can add per-project restrictions
-
-### Project policy precedence
-1. If `project_policy.strict_mode=true` and no explicit rule for the action: deny.
-2. If explicit action rule exists in project policy:
-   - use `allowed_roles`
-   - apply `allowed_actor_ids` when present
-3. Otherwise, fallback to default RBAC rule.
-4. Runtime allow-list (if provided by service flow) can further restrict actor IDs.
-
-### Stop and resume
-1. Run orchestration with external provider:
-   - it may stop at `waiting_approval`
-2. Resume with approval endpoint:
-   - provide `project_id` + `approved_actions`
-   - optional `actor` and `note`
-3. If review fails, project can enter `revision_requested`
-4. Resume revision with explicit mode:
-   - `replanning`
-   - `rebuilding`
-   - `rereview`
-
-### Example: resume from waiting_approval
-```bash
-curl -X POST http://127.0.0.1:8000/orchestrator/resume/approval \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer dev-approver-token" \
-  -d "{\"project_id\":\"<id>\",\"approved_actions\":[\"external_api_send\"],\"actor\":{\"actor_id\":\"u-1\",\"actor_role\":\"approver\",\"actor_type\":\"human\"}}"
-```
-
-### Example: reject approval
-```bash
-curl -X POST http://127.0.0.1:8000/orchestrator/approval/reject \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer dev-approver-token" \
-  -d "{\"project_id\":\"<id>\",\"rejected_actions\":[\"external_api_send\"],\"actor\":{\"actor_id\":\"u-2\",\"actor_role\":\"approver\",\"actor_type\":\"human\"},\"reason\":\"Security policy\"}"
-```
-
-### Example: resume from revision_requested
-```bash
-curl -X POST http://127.0.0.1:8000/orchestrator/resume/revision \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer dev-operator-token" \
-  -d "{\"project_id\":\"<id>\",\"resume_mode\":\"replanning\",\"actor\":{\"actor_id\":\"u-3\",\"actor_role\":\"operator\",\"actor_type\":\"human\"},\"reason\":\"Adjust architecture\"}"
-```
-
-### Example: start replanning execution
-```bash
-curl -X POST http://127.0.0.1:8000/orchestrator/replanning/start \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer dev-operator-token" \
-  -d "{\"project_id\":\"<id>\",\"actor\":{\"actor_id\":\"u-3\",\"actor_role\":\"operator\",\"actor_type\":\"human\"},\"note\":\"Start revised plan\"}"
-```
-
-### Example: audit retrieval
-```bash
-curl http://127.0.0.1:8000/projects/<id>/audit
-```
-
-## Design docs
-- `docs/architecture.md`
-- `docs/implementation-plan.md`
-- `docs/operational_startup_runbook.md`
-- `docs/system_requirements.md`
-- `docs/mvp_requirements.md`
-- `docs/pre_production_requirements.md`
-- `docs/non_goals.md`
-- `docs/requirement_traceability_matrix.md`
-- `docs/acceptance_criteria.md`
+Additional governance/runbook references:
+- `docs/codex_continuation_runbook.md`
+- `docs/codex_automation_prompts.md`
+- `docs/model_governance_policy.md`
+- `docs/model_routing_policy.json`
+- `docs/operator_workflow_runbook.md`
 - `docs/staging_validation_plan.md`
 - `docs/staging_execution_record.md`
 - `docs/staging_evidence_template.md`
@@ -204,94 +50,365 @@ curl http://127.0.0.1:8000/projects/<id>/audit
 - `docs/rollout_plan.md`
 - `docs/rollback_checklist.md`
 - `docs/production_readiness_gaps.md`
+- `docs/system_requirements.md`
+- `docs/mvp_requirements.md`
+- `docs/pre_production_requirements.md`
+- `docs/non_goals.md`
+- `docs/requirement_traceability_matrix.md`
+- `docs/acceptance_criteria.md`
 
-## Management Review Artifacts
-- `docs/management_review_template.md`
-- `docs/management_department_runbook.md`
-- `docs/management_department_prompt.md`
-- `docs/examples/management_review_session_example.md`
-- `docs/management_readiness_checklist.md`
-- `docs/management_decision_format.md`
-- `docs/review_queue_format.md`
-- `docs/examples/review_queue_item_example.json`
-- `docs/examples/management_decision_example.json`
-- `docs/current_brief_template.json`
-- `docs/current_work_order_template.json`
-- `docs/review_decision_template.md`
+Readiness/operator script references (contract compatibility):
+- `scripts\refresh-openapi.ps1`
+- `scripts\openclaw-gateway-check.ps1`
+- `openclaw-evidence-capture.ps1`
+- `operator-stage-report.ps1`
+- `operator-audit-assert.ps1`
+- `operator-full-cycle.ps1`
+- `operator-cycle-suite.ps1`
+- `operator-handoff-envelope.ps1`
+- `operator-stage-gate.ps1`
+- `operator-menu.ps1`
+- `operator-status.ps1 -BundleManifestPath`
+- `operator-stage-report.ps1 -BundleManifestPath`
+- `operator-audit-assert.ps1 -BundleManifestPath`
+- `Readiness Replay Summary`
+- `legacy_fallback_normalizations`
+- `status-summary.json`
+- `bundle-manifest.json`
+- `readiness-manifest-`
+- `readiness-summary-`
 
-## Codex Continuation Automation
-- `docs/codex_continuation_runbook.md`
-- `docs/codex_automation_prompts.md`
-- `docs/model_governance_policy.md`
-- `docs/model_routing_policy.json`
+Common readiness/operator flags:
+- `-AuditJsonPath`
+- `-NoEventDerivedTelemetry`
+- `-SummaryOutPath`
+- `-BundleManifestPath`
+- `-RunOpenClawGatewayCheck`
+- `-OperatorMaxLlmTransportFallbacks`
+- `-OperatorRequireAuthEvidence`
+- `-OperatorAuthorizationOperator`
+- `-OperatorExpectedAuthRoles`
+- `-OperatorAuthPolicyMode`
+- `-OperatorBreakglass`
+- `-OperatorBreakglassReason`
+- `-OperatorBreakglassActor`
 
-## Continuation Decision Rules
-Use these values when deciding whether to proceed with the next implementation step:
+## Setup
 
-- `GO`
-  - task is inside active roadmap phase
-  - no architecture/direction change is needed
-  - no new dependency is needed
-  - no auth/approval/policy/security redesign is needed
-  - smallest relevant verification passes
+1. Create Python 3.12 environment.
+2. Install dependencies:
 
-- `PAUSE`
-  - local verification fails and root cause is not isolated
-  - next valid step is unclear from roadmap/direction guard
-  - continuing now would likely create unsafe or unclear changes
-
-- `REVIEW`
-  - roadmap/phase update is required
-  - dependency addition is required
-  - migration or significant auth/approval/policy change is required
-  - direction conflict is detected
-
-## Escalation Rules
-- Low-risk tasks (docs wording, local formatting, narrow tests) may continue with `GO`.
-- Medium-risk tasks (multi-file behavior changes, orchestration behavior shifts) require conservative judgment;
-  if behavior may drift, escalate to `REVIEW`.
-- High-risk tasks (auth/approval/policy/audit/security/schema/dependency changes) are `REVIEW` by default.
-- Cheap action models may assist with drafting, but cannot be final authority for risky continuation.
-
-## Extension strategy
-1. Replace dev token auth with JWT/OIDC/SSO verification.
-2. Add real provider API clients behind existing provider adapters.
-3. Move DB bootstrap SQL to managed migrations (Alembic).
-4. Add retrieval and evidence freshness scoring (pgvector-ready path).
-
-## Safety
-- No real secrets are stored or required for baseline operation.
-- `.env.example` only; real keys are optional and not used by default flow.
-
-## Local verification
-
-```powershell
-.\scripts\verify.ps1
-.\scripts\verify.ps1 -ApiOnly
-.\scripts\verify.ps1 -NoRuff
-.\scripts\verify.ps1 -ApiOnly -NoRuff
+```bash
+pip install -e ".[dev]"
 ```
 
-## Operational readiness
+3. Copy env file and fill values:
 
-Read the detailed runbook here:
-
-- `docs/operational_readiness_runbook.md`
-
-Run the service first, then use these commands:
-
-```powershell
-.\scripts\preflight.ps1
-.\scripts\full-live-flow.ps1 -Authorization "Bearer dev-approver-token"
-.\scripts\live-smoke.ps1
-.\scripts\live-smoke.ps1 -ProjectId your-project-id -Authorization "Bearer dev-approver-token"
-.\scripts\live-smoke.ps1 -ApprovalProjectId approval-id -RejectProjectId reject-id -RevisionProjectId revision-id -ReplanningProjectId replanning-id -Authorization "Bearer dev-approver-token"
-.\scripts\smoke.ps1
-.\scripts\resilience.ps1
-.\scripts\release-readiness.ps1
-.\scripts\release-readiness.ps1 -AutoSeedFullFlow -Authorization "Bearer dev-approver-token"
-.\scripts\release-readiness.ps1 -SkipVerify
+```bash
+cp .env.example .env
 ```
 
+4. Ensure PostgreSQL is running and `DATABASE_URL` is valid.
+   - `monitor --once` and `live --once` require reachable PostgreSQL.
 
+## Environment Variables
 
+Required/primary:
+- `APP_ENV`
+- `LOG_LEVEL`
+- `DATABASE_URL`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+- `API_WRITE_TOKEN`
+- `KALSHI_BASE_URL`
+- `BLS_BASE_URL`
+- `BEA_BASE_URL`
+- `FED_BASE_URL`
+- `DISPLAY_TIMEZONE` (default `Asia/Tokyo`)
+- `POLL_INTERVAL_SECONDS`
+- `ACTIVE_RELEASE_WINDOW_MINUTES`
+
+Retry/network:
+- `REQUEST_TIMEOUT_SECONDS`
+- `MAX_RETRIES`
+- `BACKOFF_BASE_SECONDS`
+
+Monitoring:
+- `MONITORING_ENABLED`
+- `MONITORING_INTERVAL_SECONDS`
+- `MONITORING_TELEGRAM_CHAT_ID` (optional; falls back to `TELEGRAM_CHAT_ID`)
+- `MONITORING_ALERT_COOLDOWN_CRITICAL_SECONDS`
+- `MONITORING_ACTUAL_MISSING_GRACE_SECONDS`
+- `MONITORING_NO_SIGNAL_GRACE_SECONDS`
+- `MONITORING_SIGNAL_BURST_THRESHOLD`
+- `MONITORING_SIGNAL_BURST_MARKET_THRESHOLD`
+- `MONITORING_NOTIFICATION_FAILURE_BURST_THRESHOLD`
+
+Operator/local profile:
+- `STATE_BACKEND`
+- `STATE_BACKEND_STRICT`
+- `SQLITE_DB_PATH`
+- `OPENCLAW_CHAT_FAILURE_COOLDOWN_SECONDS`
+- `OPERATOR_API_TIMEOUT_SECONDS`
+
+## Database Migration
+
+```bash
+alembic upgrade head
+```
+
+Or:
+
+```bash
+./scripts/init_db.sh
+```
+
+## Run Modes
+
+Live:
+
+```bash
+python -m app.main live
+```
+
+Live once without remote schedule ingestion (local/dev fallback):
+
+```bash
+python -m app.main live --once --skip-remote-schedules
+```
+
+Backfill:
+
+```bash
+python -m app.main backfill --from 2026-01-01T00:00:00Z --to 2026-03-01T00:00:00Z
+```
+
+Replay:
+
+```bash
+python -m app.main replay --release-id CPI-2026-04-10
+```
+
+API:
+
+```bash
+python -m app.main api
+```
+
+Monitoring (single tick):
+
+```bash
+python -m app.main monitor --once
+```
+
+Monitoring (loop):
+
+```bash
+python -m app.main monitor --loop
+```
+
+`monitor --once` is for deterministic local checks and CI smoke, while `monitor --loop` is for long-running watch mode.
+
+Manual release seeding (YAML):
+
+```bash
+python -m app.main seed-releases --file config/manual_releases.yaml
+```
+
+Manual actual seeding (YAML):
+
+```bash
+python -m app.main seed-actuals --file config/manual_actuals.yaml
+```
+
+Manual market seeding (YAML):
+
+```bash
+python -m app.main seed-markets --file config/manual_markets.yaml
+```
+
+Manual snapshot seeding (YAML):
+
+```bash
+python -m app.main seed-snapshots --file config/manual_snapshots.yaml
+```
+
+Local BLS-free smoke (single command):
+
+```powershell
+.\scripts\local-dev-smoke.ps1
+```
+
+This runs:
+1. `seed-releases`
+2. `seed-actuals`
+3. `seed-markets`
+4. `seed-snapshots`
+5. `live --once --skip-remote-schedules`
+6. `monitor --once`
+
+Seed file format (`config/manual_releases.yaml`):
+
+```yaml
+releases:
+  - release_type: CPI
+    release_name: Consumer Price Index
+    scheduled_time_utc: "2026-06-11T12:30:00Z"
+    source_url: "manual://cpi-2026-06-11"
+    status: scheduled
+```
+
+Actual seed file format (`config/manual_actuals.yaml`):
+
+```yaml
+actuals:
+  - release_type: CPI
+    release_name: Consumer Price Index
+    scheduled_time_utc: "2026-06-11T12:30:00Z"
+    actual_value_num: 3.3
+    actual_value_text: "Headline CPI YoY 3.3%"
+    source_url: "manual://actual/cpi-dev-seed"
+    released_at_utc: "2026-06-11T12:30:00Z"
+    status: released
+```
+
+Market seed file format (`config/manual_markets.yaml`):
+
+```yaml
+markets:
+  - market_ticker: CPI-DEV-APR19-ABOVE-3.1
+    platform: kalshi
+    title: "Will CPI Dev Seed Near Term print above 3.1%?"
+    close_time_utc: "2026-04-19T13:00:00Z"
+    status: active
+    release_type: CPI
+    release_name: CPI Dev Seed Near Term
+    scheduled_time_utc: "2026-04-19T12:30:00Z"
+    mapping_confidence: 1.0
+    mapping_payload_json:
+      manual_seed: true
+      threshold:
+        comparator: above
+        value: 3.1
+        unit: "%"
+```
+
+Snapshot seed file format (`config/manual_snapshots.yaml`):
+
+```yaml
+snapshots:
+  - market_ticker: CPI-DEV-APR19-ABOVE-3.1
+    captured_at_utc: "2026-04-19T12:20:00Z"
+    yes_bid: 0.44
+    yes_ask: 0.48
+    volume: 130
+```
+
+Operational note:
+- If runtime dependencies are unavailable (for example DB down or upstream HTTP errors), commands fail once with a clear error log and attempt graceful async cleanup.
+- Manual release seeding and `--skip-remote-schedules` are intended for local development/internal validation when upstream schedule pages are temporarily unavailable.
+- Manual actual seeding is intended for local development/internal validation when upstream actual-value ingestion is unavailable.
+- Manual market seeding is intended for local development/internal validation when upstream discovery/mapping is insufficient.
+- Manual snapshot seeding is intended for local development/internal validation when upstream polling data is unavailable or insufficient.
+- For local/internal compatibility, manual market mappings can include `release_id`, `threshold`, and `contract_interpretation` in `mapping_payload_json`; non-manual production mapping behavior is unchanged.
+- Manual markets with `mapping_payload_json.manual_seed=true` are treated as synthetic in local dev mode: upstream Kalshi detail/orderbook polling is skipped and seeded local snapshots are used as the source of truth.
+
+## SQLite operational policy (local ops)
+
+- Local readiness profile uses `STATE_BACKEND=sqlite` and `STATE_BACKEND_STRICT=true`.
+- SQLite local operation is intentionally persistence-focused and is **not treated as a production-grade** concurrency validation profile.
+- Keep `OPENCLAW_CHAT_FAILURE_COOLDOWN_SECONDS` and `OPERATOR_API_TIMEOUT_SECONDS` explicitly configured for stable local operator runs.
+
+## API Endpoints
+
+- `GET /health`
+- `GET /status`
+- `GET /monitor`
+- `GET /signals`
+- `GET /releases/upcoming`
+- `GET /signals/recent`
+- `GET /monitoring/status`
+- `GET /monitoring/events/recent`
+- `GET /monitoring/events/open`
+- `POST /jobs/backfill` (requires `Authorization: Bearer <API_WRITE_TOKEN>`)
+- `POST /jobs/replay` (requires `Authorization: Bearer <API_WRITE_TOKEN>`)
+
+## MVP Completion Criteria
+
+### 1. Local MVP Pass
+
+The local MVP gate is satisfied when all of the following pass:
+- release seeding succeeds (`seed-releases`)
+- actual seeding succeeds (`seed-actuals`)
+- market seeding succeeds (`seed-markets`)
+- snapshot seeding succeeds (`seed-snapshots`)
+- `live --once --skip-remote-schedules` succeeds
+- at least one signal is persisted in `signals`
+- `monitor --once` reflects expected open/resolved transitions for active scenarios
+- Telegram signal notifications succeed for high/critical signals
+- readiness/docs/env contract tests pass
+
+Manual seed roles in local BLS-free mode:
+- releases: scheduled events to monitor
+- actuals: official-value stand-in for actual-dependent logic
+- markets: explicit release-linked market catalog rows
+- snapshots: time-series price points required by signal windows
+
+### 2. Internal Beta Pass
+
+Internal beta readiness expects:
+- repeatable runs via `.\scripts\local-dev-smoke.ps1`
+- deterministic smoke summary visibility (counts, latest signals, open/resolved monitor events)
+- documented operator workflow and readiness runbook coverage
+- Telegram notification paths validated in an internal non-production chat
+
+### 3. Production Readiness Remaining Gaps
+
+Remaining gaps before production rollout include:
+- full real-upstream schedule/actual resiliency validation (beyond local BLS-free mode)
+- production secret handling and token rotation execution plan
+- production database/availability validation beyond local SQLite/Postgres dev profiles
+- deployment/monitoring SLO hardening and incident runbook finalization
+
+## Telegram Operations
+
+- Pulse is the MacroPulse Telegram notification interface for signal and monitoring events.
+- Signal notifications and monitoring alerts share the existing notifier path, but monitoring can target `MONITORING_TELEGRAM_CHAT_ID` (falls back to `TELEGRAM_CHAT_ID`).
+- In local runs, use `monitor --once` to validate alert/event transitions after each deterministic cycle.
+- For watch mode, use `monitor --loop` and keep critical cooldown behavior enabled.
+- Read-only observability surfaces are available via API endpoints: `/status`, `/monitor`, `/signals`.
+- Internal beta quick path: run `.\scripts\local-dev-smoke.ps1`, then verify `/status`, `/monitor`, and `/signals`.
+- Before broader deployment, rotate bot token/chat settings, separate dev/prod tokens, and validate send path with a non-production chat target.
+
+## Testing
+
+Run targeted MVP tests:
+
+```bash
+pytest tests/test_threshold_parser.py tests/test_market_mapping.py tests/test_signal_engine.py tests/test_scoring_engine.py tests/test_cooldown.py tests/test_evaluation.py tests/test_api_routes.py tests/test_replay_flow.py
+```
+
+## Assumptions
+
+- Schedule ingestion uses deterministic HTML date extraction from official pages; official source page formats may evolve.
+- Stored `source_url` values are release-content URLs (or deterministic URL templates), not schedule pages.
+- For FOMC v1, statement time is fixed to 14:00 ET on the meeting decision date.
+- `release_id` is deterministic (`<release_type>-<date>`).
+- Kalshi public endpoint shapes can vary; adapter parsing handles common payload variants and degrades gracefully when fields are missing.
+- In live mode, if official actual parsing fails, the error context is persisted in `release_actuals.parsed_payload_json`, and `DELAYED_REPRICING` will not trigger.
+- Write job routes are denied when `API_WRITE_TOKEN` is unset.
+
+## Known Limitations
+
+- Official data parser regexes are deterministic but can be fragile to major upstream HTML/text template changes.
+- Some release-content URL templates (especially GDP advance slug shapes) are deterministic heuristics and may require updates if publisher URL conventions change.
+- No dashboard UI is included in v1.
+- API endpoints are intentionally minimal and synchronous for management operations.
+- Replay/backfill rely on already persisted snapshot history.
+- In-app monitoring complements, but does not replace, external infrastructure monitoring/alerting.
+- Fallback monitoring tick-failure alerts use in-memory cooldown state so they remain available when DB access itself is unavailable.
+- Monitoring checks for missing actuals intentionally focus on a recent due window (last 30 days) to avoid stale historical gaps dominating current health status.
+- Warning-level monitor events are persisted and queryable but are not auto-alerted to Telegram in v1.
+- Official sources (including BLS) still depend on upstream site availability and normal outbound HTTPS access from the runtime environment.
+- All three external HTTP adapters (BLS, Fed, BEA) use browser-like headers and `follow_redirects=True` to reduce 403 responses from upstream sites.
+- `request_with_backoff` does not retry 4xx responses (client errors such as 403/404 are deterministic and retrying them would only add delay). 5xx server errors are still retried with exponential backoff.
