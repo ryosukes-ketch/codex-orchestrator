@@ -1,0 +1,14 @@
+{
+  "last_run_at": "2026-04-26T02:05:02.3480976Z",
+  "last_status": "ok",
+  "last_cycle_id": "steady-state-run-20260426-110459",
+  "last_checkpoint_manifest": "D:\\codex\\logs\\ga-steady-state\\runs\\20260426-110459\\checkpoint\\ga-steady-state-checkpoint-refresh.manifest.json",
+  "last_watchlist_manifest": "D:\\codex\\logs\\ga-steady-state\\runs\\20260426-110459\\watchlist\\ga-steady-state-escalation-watchlist-route.manifest.json",
+  "last_known_issue_update": "",
+  "consecutive_escalate_count": 0,
+  "open_watch_count": 1,
+  "open_escalate_count": 1,
+  "last_owner_assignment_pending_count": 0,
+  "paused_reason": "",
+  "consecutive_external_blocker_count": 0
+}

@@ -48,6 +48,31 @@
       "security_boundary_change"
     ],
     "final_authority": "management_department"
+  },
+  "live_run_policy": {
+    "modes": {
+      "normal": {
+        "enforce_allowlist": false
+      },
+      "strict": {
+        "enforce_allowlist": true,
+        "allowed_effective_providers": [
+          "openclaw"
+        ],
+        "allowed_effective_models": [
+          "openclaw/codex-orchestrator",
+          "openclaw/codex-orchestrator@openai-codex/gpt-5.2",
+          "openclaw/codex-orchestrator@openai-codex/gpt-5.4"
+        ],
+        "allowed_openclaw_agents": [
+          "codex-orchestrator"
+        ],
+        "deny_on_backend_override_mismatch": true
+      },
+      "breakglass": {
+        "enforce_allowlist": false,
+        "require_explicit_reason": true
+      }
+    }
   }
 }
-

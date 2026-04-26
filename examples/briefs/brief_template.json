@@ -1,0 +1,19 @@
+{
+  "title": "Your Project Title",
+  "objective": "One sentence describing what you want to achieve",
+  "scope": "What is included in this project",
+  "constraints": [
+    "List any constraints here"
+  ],
+  "success_criteria": [
+    "How you will know the project succeeded"
+  ],
+  "deadline": "2026-12-31",
+  "stakeholders": [
+    "operator"
+  ],
+  "assumptions": [
+    "Any assumptions made"
+  ],
+  "raw_request": "Free-form description of the request in plain language"
+}

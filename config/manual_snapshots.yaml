@@ -1,0 +1,38 @@
+snapshots:
+  # pre-release pressure window (release_time - 60min to release_time - 1min)
+  - market_ticker: CPI-DEV-APR18-ABOVE-3.1
+    captured_at_utc: "2026-04-18T01:20:00Z"
+    yes_bid: 0.38
+    yes_ask: 0.42
+    last_price: 0.40
+    volume: 100
+
+  - market_ticker: CPI-DEV-APR18-ABOVE-3.1
+    captured_at_utc: "2026-04-18T01:29:00Z"
+    yes_bid: 0.48
+    yes_ask: 0.52
+    last_price: 0.50
+    volume: 170
+
+  # release shock window (release_time to release_time + 120s)
+  # needs >= 2 points; p0 and p30 must show >= 6% move in 30s
+  - market_ticker: CPI-DEV-APR18-ABOVE-3.1
+    captured_at_utc: "2026-04-18T01:30:00Z"
+    yes_bid: 0.48
+    yes_ask: 0.52
+    last_price: 0.50
+    volume: 170
+
+  - market_ticker: CPI-DEV-APR18-ABOVE-3.1
+    captured_at_utc: "2026-04-18T01:30:30Z"
+    yes_bid: 0.54
+    yes_ask: 0.58
+    last_price: 0.56
+    volume: 200
+
+  - market_ticker: CPI-DEV-APR18-ABOVE-3.1
+    captured_at_utc: "2026-04-18T01:31:00Z"
+    yes_bid: 0.54
+    yes_ask: 0.58
+    last_price: 0.56
+    volume: 220

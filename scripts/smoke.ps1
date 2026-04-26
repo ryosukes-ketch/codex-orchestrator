@@ -8,6 +8,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
+. (Join-Path $PSScriptRoot "test-targets.ps1")
 
 $pythonExe = Join-Path $repoRoot ".venv\Scripts\python.exe"
 $ruffExe = Join-Path $repoRoot ".venv\Scripts\ruff.exe"
@@ -20,18 +21,14 @@ if (-not $SkipPreflight) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-$targets = @(
-    "tests/test_api.py",
-    "tests/test_orchestrator.py",
-    "tests/test_dry_run_orchestration.py"
-)
+$targets = Get-OperationalPytestTargets
 
 Write-Host "[1/2] Targeted smoke pytest"
 & $pythonExe "-m" "pytest" "-q" @targets
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 if (-not $NoRuff) {
-    Write-Host "[2/2] Ruff check for changed surfaces"
-    & $ruffExe "check" "scripts" "tests" "README.md"
+    Write-Host "[2/2] Ruff check (app + tests)"
+    & $ruffExe "check" "app" "tests"
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }

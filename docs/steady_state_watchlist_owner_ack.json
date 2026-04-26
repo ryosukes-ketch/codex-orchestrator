@@ -1,0 +1,14 @@
+{
+  "rules": [
+    {
+      "id": "release-lane-ops-owner-ack",
+      "enabled": true,
+      "checkpoint_lane": "release",
+      "decision": "escalate",
+      "source_bundle_type": "phase14_release_train_evidence",
+      "owner": "release_ops_owner",
+      "status": "tracking",
+      "sla_days": 3
+    }
+  ]
+}

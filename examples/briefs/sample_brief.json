@@ -1,0 +1,26 @@
+{
+  "title": "AI Internal Delivery Platform",
+  "objective": "Build a minimal AI-driven internal delivery platform for automating work orders",
+  "scope": "Backend API, orchestration layer, approval workflow, audit trail",
+  "constraints": [
+    "Must run locally without external API keys for baseline operation",
+    "Must support approval gates for external API calls",
+    "Must retain project state across server restarts when using SQLite backend"
+  ],
+  "success_criteria": [
+    "POST /orchestrator/run returns project_id and status",
+    "Approval flow completes without errors",
+    "Audit trail records all actor decisions",
+    "State persists after server restart with STATE_BACKEND=sqlite"
+  ],
+  "deadline": "2026-06-01",
+  "stakeholders": [
+    "operator",
+    "approver"
+  ],
+  "assumptions": [
+    "Dev auth tokens are sufficient for local validation",
+    "mock trend provider is acceptable for baseline testing"
+  ],
+  "raw_request": "Build an AI internal delivery platform with approval workflow and persistent state"
+}

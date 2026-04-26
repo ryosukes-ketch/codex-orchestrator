@@ -1,0 +1,25 @@
+{
+  "project_name": "ai-company-orchestrator-commercial-auth-productization",
+  "objective": "Harden orchestrator authentication for commercial use while preserving strict policy and approval invariants.",
+  "requested_outcomes": [
+    "Replace or abstract DevTokenAuthService for production use",
+    "Preserve operator/approver auth evidence in protected flows",
+    "Keep strict completed-only and policy assertions unchanged",
+    "Keep approval/reject/revise/replan/audit routes backward compatible",
+    "Synchronize docs/tests/evidence with the auth changes"
+  ],
+  "constraints": [
+    "Do not weaken strict auth or policy behavior",
+    "Do not trust client actor identity over server-authenticated identity",
+    "Do not introduce broad architecture changes",
+    "Do not add production dependencies without explicit review"
+  ],
+  "acceptance_criteria": [
+    "Protected routes succeed with configured production-auth mode",
+    "Protected routes fail deterministically on missing/invalid auth with auditable reason",
+    "Operator and approver evidence fields remain available in audit trail",
+    "Targeted auth/approval tests pass",
+    "Readiness/operator documentation is aligned"
+  ],
+  "notes": "steady_state remains completed operations mode; this objective is a separate remediation stream."
+}

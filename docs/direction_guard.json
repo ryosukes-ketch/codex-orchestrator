@@ -1,5 +1,6 @@
 {
   "project_name": "structured-ai-work-system",
+  "active_phase": "steady_state",
   "source_of_truth": [
     "docs/architecture.md",
     "docs/implementation-plan.md",
@@ -12,6 +13,85 @@
     "Treat authn, authz, approval, policy, and audit as first-class concerns",
     "Favor small safe increments over broad speculative refactors"
   ],
+  "phase_7_policy_hardening_scope": {
+    "intent": "Harden live-run policy operations after phase_6 by enforcing explicit auth boundaries and routing controls without relaxing strict completion policy.",
+    "must_enforce": [
+      "Keep strict gate completed-only semantics",
+      "Do not treat revision_requested as strict success",
+      "Use explicit allowlist checks for effective agent/provider/model in strict runs",
+      "Keep operator vs approver authority boundaries auditable",
+      "Record deny reasons and override usage in audit/manifest evidence"
+    ],
+    "operation_modes": {
+      "normal": "Day-to-day mode with operational flexibility and full evidence capture.",
+      "strict": "Completed-only verification mode with explicit policy checks and fallback budgets.",
+      "breakglass": "Exception path requiring explicit reason, actor traceability, and policy evidence markers."
+    },
+    "non_goals": [
+      "No strict gate relaxation",
+      "No new provider onboarding as part of policy hardening",
+      "No architecture rewrite to implement phase_7 controls"
+    ]
+  },
+  "phase_8_product_hardening_scope": {
+    "intent": "Harden the local operational package for commercial pilot onboarding without weakening established auth/policy gates.",
+    "must_enforce": [
+      "Preserve strict completed-only semantics and phase_7 policy invariants",
+      "Treat sqlite as the default local operational backend with explicit recovery guidance",
+      "Keep OpenClaw integration evidence and diagnostics first-class in runbooks and manifests",
+      "Improve operator-facing startup/readiness/support workflows without broad architecture changes"
+    ],
+    "focus_areas": {
+      "operational_baseline": "Default to repeatable sqlite-backed startup and readiness execution profiles.",
+      "onboarding_packaging": "Unify quick-start, startup, readiness, and operator docs for pilot handoff.",
+      "supportability": "Strengthen failure triage and evidence-capture paths for faster incident isolation."
+    },
+    "non_goals": [
+      "No auth or policy gate relaxation introduced in phase_7",
+      "No new provider family onboarding",
+      "No orchestrator architecture rewrite for commercial packaging"
+    ]
+  },
+  "phase_9_commercial_pilot_scope": {
+    "intent": "Prepare a customer-facing commercial pilot package with explicit onboarding, support, and acceptance evidence while preserving strict policy/auth controls.",
+    "must_enforce": [
+      "Keep strict completed-only semantics and phase_7 policy invariants",
+      "Keep sqlite-backed local recovery and replay evidence workflows operational",
+      "Provide customer-facing setup/operations/support documentation with deterministic evidence paths",
+      "Standardize pilot acceptance criteria and closure artifacts for repeatable handoff"
+    ],
+    "focus_areas": {
+      "delivery_kit": "Build a pilot delivery kit covering setup, operations, diagnostics, and inquiry templates.",
+      "support_readiness": "Define support triage entrypoints and required artifact bundle paths.",
+      "acceptance_evidence": "Normalize pass/fail checklist and evidence capture for pilot completion signoff."
+    },
+    "non_goals": [
+      "No strict gate relaxation",
+      "No provider expansion work",
+      "No architecture rewrite during packaging phase"
+    ]
+  },
+  "phase_10_self_serve_scope": {
+    "intent": "Move from assisted pilot delivery to self-serve-ready product packaging while preserving strict auth/policy controls and deterministic evidence paths.",
+    "must_enforce": [
+      "Keep strict completed-only semantics and phase_7/phase_9 policy invariants",
+      "Preserve sqlite recovery/export/replay operational contracts",
+      "Define self-serve setup and startup prerequisites with explicit validation guidance",
+      "Protect support artifacts from over-collection while keeping incident triage deterministic"
+    ],
+    "focus_areas": {
+      "distribution_kit": "Package setup/startup/readiness/operator entrypoints for customer-managed environments.",
+      "onboarding_guardrails": "Add deterministic preflight and configuration validation guidance before live execution.",
+      "release_safety": "Standardize update/rollback/data-protection flows for sqlite, logs, and manifest artifacts.",
+      "support_safe_evidence": "Define minimal-yet-sufficient support bundle and inquiry intake contracts."
+    },
+    "non_goals": [
+      "No strict policy relaxation",
+      "No provider expansion",
+      "No SaaS control-plane implementation",
+      "No architecture rewrite beyond packaging/readiness boundaries"
+    ]
+  },
   "must_preserve": [
     "Authenticated actor resolution on protected approval endpoints",
     "Server-side actor authority over client-provided actor fields",
@@ -47,5 +127,242 @@
     "Auth, approval, or policy behavior must change",
     "The code suggests a larger architectural mismatch"
   ],
-  "decision_values": ["GO", "PAUSE", "REVIEW"]
+  "decision_values": [
+    "GO",
+    "PAUSE",
+    "REVIEW"
+  ],
+  "phase_11_release_governance_scope": {
+    "intent": "Move from self-serve packaging to commercial launch governance with deterministic release and support controls.",
+    "must_enforce": [
+      "Keep strict completed-only semantics and phase_7 through phase_10 policy invariants",
+      "Define release artifact contracts for versioning, release notes, known issues, and rollback guidance",
+      "Keep support escalation and ownership boundaries explicit and auditable",
+      "Preserve sqlite recovery and support-safe evidence contracts established in phase_8 through phase_10"
+    ],
+    "focus_areas": {
+      "release_governance": "Standardize release unit metadata, change summary, known issue tracking, and rollback signal handling.",
+      "launch_support": "Define operator/support/escalation ownership with deterministic intake templates.",
+      "go_no_go_evidence": "Add launch decision checklist and evidence package requirements for commercial readiness."
+    },
+    "non_goals": [
+      "No strict gate relaxation",
+      "No new provider onboarding",
+      "No SaaS control-plane implementation",
+      "No broad architecture rewrite"
+    ]
+  },
+  "phase_12_post_launch_ops_scope": {
+    "intent": "Stabilize post-launch operations using observed support patterns while preserving established strict policy/auth controls.",
+    "must_enforce": [
+      "Keep strict completed-only semantics and phase_7 through phase_11 invariants",
+      "Keep support boundary/escalation ownership deterministic and auditable",
+      "Retain sqlite recovery and support-safe evidence contracts as mandatory incident inputs",
+      "Prioritize small runbook/evidence hardening changes over architectural expansion"
+    ],
+    "focus_areas": {
+      "support_pattern_hardening": "Convert recurring incident patterns into deterministic runbook and checklist updates.",
+      "evidence_quality": "Improve signal-to-noise quality of support bundles and handoff artifacts.",
+      "launch_feedback_loop": "Track launch-week findings and convert them into bounded operational improvements."
+    },
+    "non_goals": [
+      "No strict policy relaxation",
+      "No new provider onboarding",
+      "No SaaS control-plane implementation",
+      "No broad architecture rewrite"
+    ]
+  },
+  "phase_13_post_launch_feedback_scope": {
+    "intent": "Convert post-launch support evidence into deterministic backlog and release-governance actions without relaxing strict policy/auth controls.",
+    "must_enforce": [
+      "Keep strict completed-only semantics and phase_7 through phase_12 invariants",
+      "Route recurring support issues through explicit triage and priority scoring outputs",
+      "Keep known-issue routing decisions auditable and evidence-backed",
+      "Preserve support-safe artifact collection while reducing operational ambiguity"
+    ],
+    "focus_areas": {
+      "triage_operationalization": "Map support evidence to runbook/product/release/monitoring backlog categories.",
+      "priority_governance": "Apply deterministic scoring for launch issue prioritization and response speed.",
+      "release_connection": "Export feedback decisions into release/hotfix candidate manifests with traceability."
+    },
+    "non_goals": [
+      "No strict policy relaxation",
+      "No new provider onboarding",
+      "No SaaS control-plane implementation",
+      "No broad architecture rewrite"
+    ]
+  },
+  "phase_14_release_train_scope": {
+    "intent": "Convert post-launch backlog and known-issue evidence into deterministic release candidate, decision, publication, and evidence-export artifacts for GA readiness.",
+    "must_enforce": [
+      "Keep strict completed-only semantics and prior phase auth/policy invariants.",
+      "Keep release go/hold/rollback decisions evidence-backed and auditable.",
+      "Keep known-issue publication routing explicit for operator/customer communication.",
+      "Keep representative release-train evidence export attached to staging records."
+    ],
+    "focus_areas": {
+      "candidate_promotion": "Promote phase_13 backlog export lanes into release-candidate manifests with include/exclude rationale.",
+      "decision_packaging": "Produce GO/HOLD/ROLLBACK package from candidate + readiness + known issue impact.",
+      "publication_and_notes": "Assemble release notes and publication routing for known issues.",
+      "evidence_export": "Export release-train bundle and sync docs/roadmap/staging evidence."
+    },
+    "non_goals": [
+      "No strict policy relaxation",
+      "No provider family expansion",
+      "No SaaS control-plane implementation",
+      "No broad orchestrator architecture rewrite"
+    ]
+  },
+  "phase_15_ga_launch_scope": {
+    "intent": "Execute GA launch package and stabilize early operations while preserving strict auth/policy invariants.",
+    "must_enforce": [
+      "Keep strict completed-only semantics and phase_7 through phase_14 invariants.",
+      "Keep go/hold/rollback decisioning evidence-backed and auditable.",
+      "Keep support/escalation loops deterministic and script-driven.",
+      "Keep known issue publication and routing synchronized with launch artifacts."
+    ],
+    "focus_areas": {
+      "ga_launch_execution": "Run integrated GA launch package baseline and preserve evidence continuity.",
+      "early_ops_incident_loop": "Convert launch-week incidents into deterministic support/escalation actions.",
+      "routing_stabilization": "Route issues into hotfix/next-release/monitoring tracks with explicit rationale.",
+      "phase_closure": "Synchronize docs/tests/staging evidence before phase closure."
+    },
+    "non_goals": [
+      "No strict policy relaxation",
+      "No provider family expansion",
+      "No SaaS control-plane implementation",
+      "No broad orchestrator architecture rewrite"
+    ]
+  },
+  "phase_16_ga_adoption_scope": {
+    "intent": "Stabilize post-GA adoption operations with deterministic weekly reliability review and bounded recurring-issue hardening.",
+    "must_enforce": [
+      "Keep strict completed-only semantics and phase_7 through phase_15 invariants.",
+      "Keep release-train/go-hold-rollback evidence continuity auditable.",
+      "Keep support/escalation loops deterministic and script-driven.",
+      "Keep known issue and recurring hardening updates bounded to small, reviewable increments."
+    ],
+    "focus_areas": {
+      "weekly_reliability_review": "Generate recurring GA-week reliability reports from support and release evidence.",
+      "recurring_issue_closure": "Convert top recurring support patterns into runbook and operational hardening candidates.",
+      "self_serve_stabilization": "Improve operator self-serve success rates without weakening policy/auth controls."
+    },
+    "non_goals": [
+      "No strict policy relaxation",
+      "No provider family expansion",
+      "No SaaS control-plane implementation",
+      "No broad orchestrator architecture rewrite"
+    ]
+  },
+  "phase_17_ga_scaling_scope": {
+    "intent": "Stabilize steady-state GA adoption operations through deterministic monthly reliability targets and customer-success governance loops.",
+    "must_enforce": [
+      "Keep strict completed-only semantics and phase_7 through phase_16 invariants.",
+      "Keep weekly reliability review and recurring hardening evidence continuity auditable.",
+      "Keep support/escalation loops deterministic and script-driven.",
+      "Keep customer-success KPI governance bounded to small, reviewable operational increments."
+    ],
+    "focus_areas": {
+      "monthly_reliability_targets": "Aggregate weekly GA reliability review outputs into monthly target packages.",
+      "closure_sla_tracking": "Track recurring hardening closure SLA ownership and status drift.",
+      "self_serve_success_metrics": "Monitor self-serve completion/incident rates and route bounded runbook updates."
+    },
+    "non_goals": [
+      "No strict policy relaxation",
+      "No provider family expansion",
+      "No SaaS control-plane implementation",
+      "No broad orchestrator architecture rewrite"
+    ]
+  },
+  "phase_18_ga_quarterly_scope": {
+    "intent": "Scale steady-state GA operations by converting monthly reliability and closure-SLA routing evidence into deterministic quarterly governance loops.",
+    "must_enforce": [
+      "Keep strict completed-only semantics and phase_7 through phase_17 invariants.",
+      "Keep monthly reliability target and closure-SLA routing evidence continuity auditable.",
+      "Keep support/escalation ownership deterministic and script-driven.",
+      "Keep customer-success governance increments bounded and reviewable."
+    ],
+    "focus_areas": {
+      "quarterly_governance_package": "Aggregate monthly reliability and closure-SLA outputs into quarterly KPI/ownership summaries.",
+      "owner_commitment_tracking": "Track owner carry-over, overdue closure handling, and commitment drift.",
+      "self_serve_scaling_metrics": "Monitor self-serve reliability and support pressure trends for bounded runbook updates."
+    },
+    "non_goals": [
+      "No strict policy relaxation",
+      "No provider family expansion",
+      "No SaaS control-plane implementation",
+      "No broad orchestrator architecture rewrite"
+    ]
+  },
+  "phase_19_upgrade_migration_scope": {
+    "intent": "Standardize customer-safe upgrade and migration safety operations from quarterly governance outputs.",
+    "must_enforce": [
+      "Keep strict completed-only semantics and phase_7 through phase_18 invariants.",
+      "Require sqlite backup/verify/export/restore rehearsal contracts in migration planning.",
+      "Keep rollback and data-protection controls auditable in manifest evidence."
+    ],
+    "focus_areas": {
+      "upgrade_impact": "Transform quarterly review signals into deterministic upgrade impact lanes.",
+      "migration_rehearsal": "Package migration rehearsal prerequisites and execution sequencing.",
+      "rollback_safety": "Publish rollback safety controls and closeout evidence contracts."
+    },
+    "non_goals": [
+      "No strict policy relaxation",
+      "No provider family expansion",
+      "No SaaS control-plane implementation",
+      "No broad orchestrator architecture rewrite"
+    ]
+  },
+  "phase_20_environment_compat_scope": {
+    "intent": "Define environment compatibility and support intake normalization baseline for scaled self-serve operations.",
+    "must_enforce": [
+      "Keep strict completed-only semantics and phase_7 through phase_19 invariants.",
+      "Keep compatibility decisions deterministic and script-backed.",
+      "Keep support intake classification normalized and auditable."
+    ],
+    "focus_areas": {
+      "environment_matrix": "Publish supported/unsupported environment matrix for operations.",
+      "compat_preflight": "Generate compatibility preflight and report package.",
+      "support_normalization": "Standardize support intake fields and routing at scale."
+    },
+    "non_goals": [
+      "No strict policy relaxation",
+      "No provider family expansion",
+      "No SaaS control-plane implementation",
+      "No broad orchestrator architecture rewrite"
+    ]
+  },
+  "phase_21_auditability_retention_scope": {
+    "intent": "Harden auditability, retention, and compliance-lite governance artifacts for commercial operations.",
+    "must_enforce": [
+      "Keep strict completed-only semantics and prior phase invariants.",
+      "Maintain deterministic retention/export policy and traceability index.",
+      "Keep incident/change ledger outputs auditable and bounded."
+    ]
+  },
+  "phase_22_steady_state_scope": {
+    "intent": "Close roadmap into steady-state commercial operations mode with deterministic cadence and handbook outputs.",
+    "must_enforce": [
+      "Keep strict completed-only semantics and prior phase invariants.",
+      "Keep release/ops cadence and handbook evidence synchronized."
+    ]
+  },
+  "steady_state_scope": {
+    "intent": "Run the system in steady-state commercial operations mode with evidence-first reliability governance.",
+    "must_enforce": [
+      "Keep strict completed-only semantics and prior phase invariants.",
+      "Keep auth/policy/audit evidence collection enabled in all operational runs.",
+      "Apply only bounded, reviewable incremental changes from validated backlog signals."
+    ],
+    "focus_areas": {
+      "cadence": "Maintain weekly/monthly/quarterly/release governance loops.",
+      "evidence": "Preserve representative operational evidence for every improvement cycle.",
+      "safety": "Avoid scope expansion beyond approved operational boundaries."
+    },
+    "non_goals": [
+      "No strict policy relaxation",
+      "No unreviewed provider expansion",
+      "No broad architecture rewrite"
+    ]
+  }
 }

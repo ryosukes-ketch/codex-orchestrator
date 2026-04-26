@@ -1,0 +1,50 @@
+mappings:
+  - release_type: CPI
+    market_match_keywords:
+      - cpi
+      - inflation
+      - yoy
+    market_exclude_keywords:
+      - core cpi
+      - forex
+    contract_interpretation: "Headline CPI YoY threshold contract"
+    direction_if_yes: "HIGHER_INFLATION"
+    threshold_parser: basic
+    priority: 5
+
+  - release_type: NFP
+    market_match_keywords:
+      - nonfarm
+      - payroll
+      - employment situation
+    market_exclude_keywords:
+      - unemployment rate
+    contract_interpretation: "Headline payroll change threshold contract"
+    direction_if_yes: "STRONGER_LABOR"
+    threshold_parser: basic
+    priority: 5
+
+  - release_type: GDP_ADVANCE
+    market_match_keywords:
+      - gdp
+      - advance
+      - annualized
+    market_exclude_keywords:
+      - nominal gdp
+    contract_interpretation: "Real GDP annualized growth advance estimate threshold contract"
+    direction_if_yes: "STRONGER_GROWTH"
+    threshold_parser: basic
+    priority: 4
+
+  - release_type: FOMC
+    market_match_keywords:
+      - fomc
+      - fed
+      - rate
+    market_exclude_keywords:
+      - minutes
+      - speech
+    contract_interpretation: "Target rate decision threshold contract"
+    direction_if_yes: "HAWKISH"
+    threshold_parser: basic
+    priority: 5

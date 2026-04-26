@@ -1,7 +1,11 @@
-# Macro Release Scanner v1.0
+# AI Work System + MacroPulser Platform
 
-Macro Release Scanner is a production-oriented MVP for monitoring Kalshi macroeconomic release markets around official US data events.  
-It ingests official schedules and actual values, discovers relevant Kalshi markets from deterministic mappings, captures market snapshots, detects repricing signals, scores them, sends Telegram alerts, stores data in PostgreSQL, and supports replay/backfill evaluation workflows.
+This repository packages two production-oriented runtimes:
+
+- `AI Work System` for intake/orchestration/approval/policy/audit workflows.
+- `MacroPulser` for Kalshi macroeconomic release monitoring and signal operations.
+
+Both runtimes share governance, operational scripts, and evidence-first runbook workflows.
 
 ## Product Overview
 
@@ -27,6 +31,44 @@ This system is not a trading bot. It does not place orders or recommend trades.
 - `app/api`: minimal management and read endpoints
 - `app/domain`: enums and typed models
 - `config/market_mapping.yaml`: deterministic market mapping rules
+
+## Product Split Entry Points
+
+This repository currently contains two runtime entrypoint families under separate folders:
+
+- MacroPulser runtime: `app/macro_pulser/main.py`
+  - Backward compatible shim remains at `app/main.py`.
+- AI Work System runtime: `app/ai_work_system/main.py`
+  - Orchestrator API runtime remains at `app/api/main.py`.
+
+Recommended direct startup commands:
+
+```bash
+python -m app.macro_pulser.main api
+python -m app.ai_work_system.main --host 0.0.0.0 --port 8001
+```
+
+Runtime and persistence boundary is defined in:
+- `docs/runtime_storage_boundary.md`
+
+Separated script entry roots (non-breaking wrappers):
+
+- MacroPulser:
+  - `scripts/macro_pulser/run-api.ps1`
+  - `scripts/macro_pulser/run-live.ps1`
+  - `scripts/macro_pulser/run-backfill.ps1`
+  - `scripts/macro_pulser/run-replay.ps1`
+  - `scripts/macro_pulser/local-dev-smoke.ps1`
+- AI Work System:
+  - `scripts/ai_work_system/start-server.ps1`
+  - `scripts/ai_work_system/release-readiness.ps1`
+  - `scripts/ai_work_system/operator-menu.ps1`
+
+Legacy root scripts remain available for backward compatibility.
+
+Packaging note:
+- `pyproject.toml` metadata is aligned to umbrella platform packaging (`ai-work-system-platform`).
+- Runtime entrypoints remain split under `app/macro_pulser` and `app/ai_work_system` as documented above.
 
 ## Continuation Governance Artifacts
 
@@ -56,6 +98,32 @@ Additional governance/runbook references:
 - `docs/non_goals.md`
 - `docs/requirement_traceability_matrix.md`
 - `docs/acceptance_criteria.md`
+- `docs/commercial_pilot_delivery_kit.md`
+- `docs/commercial_pilot_support_runbook.md`
+- `docs/commercial_pilot_scope_and_constraints.md`
+- `docs/commercial_pilot_acceptance_checklist.md`
+- `docs/commercial_pilot_handoff_checklist.md`
+- `docs/commercial_pilot_inquiry_template.md`
+- `docs/self_serve_distribution_kit_baseline.md`
+- `docs/self_serve_onboarding_guardrails.md`
+- `docs/self_serve_update_rollback_safety.md`
+- `docs/self_serve_support_safe_packaging.md`
+- `docs/self_serve_commercial_handoff_readiness.md`
+- `docs/self_serve_product_acceptance_checklist.md`
+- `docs/release_governance_baseline.md`
+- `docs/release_notes_template.md`
+- `docs/release_notes_phase11_example.md`
+- `docs/known_issues_register.md`
+- `docs/commercial_launch_support_boundary.md`
+- `docs/commercial_launch_sla_lite.md`
+- `docs/commercial_launch_go_no_go_checklist.md`
+- `docs/launch_week_support_trend_review.md`
+- `docs/launch_week_runbook_delta_backlog.md`
+- `docs/ga_launch_execution_baseline.md`
+- `docs/phase15_early_operations_stabilization.md`
+- `docs/phase15_hotfix_next_release_routing.md`
+- `docs/phase15_evidence_closure.md`
+- `docs/runtime_storage_boundary.md`
 
 Readiness/operator script references (contract compatibility):
 - `scripts\refresh-openapi.ps1`
@@ -67,6 +135,12 @@ Readiness/operator script references (contract compatibility):
 - `operator-cycle-suite.ps1`
 - `operator-handoff-envelope.ps1`
 - `operator-stage-gate.ps1`
+- `operator-replay-export.ps1`
+- `operator-support-bundle.ps1`
+- `scripts\early-ops-incident-loop.ps1`
+- `scripts\hotfix-next-release-route.ps1`
+- `scripts\phase15-evidence-closeout.ps1`
+- `scripts\launch-week-trend-review.ps1`
 - `operator-menu.ps1`
 - `operator-status.ps1 -BundleManifestPath`
 - `operator-stage-report.ps1 -BundleManifestPath`
@@ -77,6 +151,7 @@ Readiness/operator script references (contract compatibility):
 - `bundle-manifest.json`
 - `readiness-manifest-`
 - `readiness-summary-`
+- `sqlite-export.ps1`
 
 Common readiness/operator flags:
 - `-AuditJsonPath`
@@ -85,6 +160,7 @@ Common readiness/operator flags:
 - `-BundleManifestPath`
 - `-RunOpenClawGatewayCheck`
 - `-OperatorMaxLlmTransportFallbacks`
+- `-OperatorMaxRevisionReplanAttempts`
 - `-OperatorRequireAuthEvidence`
 - `-OperatorAuthorizationOperator`
 - `-OperatorExpectedAuthRoles`
@@ -150,6 +226,84 @@ Operator/local profile:
 - `SQLITE_DB_PATH`
 - `OPENCLAW_CHAT_FAILURE_COOLDOWN_SECONDS`
 - `OPERATOR_API_TIMEOUT_SECONDS`
+- `INTAKE_USE_LLM` (`0/1`; default `0`)
+- `INTAKE_MODEL` (optional override; defaults to `RESEARCH_MODEL` when enabled)
+- `AUTH_SERVICE_MODE` (`dev_token` or `commercial_token`)
+- `AUTH_ENABLED` (used when `AUTH_SERVICE_MODE=commercial_token`)
+- `AUTH_TOKEN_SEED` (used when `AUTH_SERVICE_MODE=commercial_token`)
+- `AUTH_TOKEN_STORE_PATH` (used when `AUTH_SERVICE_MODE=commercial_token`; defaults to `logs/auth/commercial-token-store.json`)
+- `DEV_AUTH_ENABLED` (used when `AUTH_SERVICE_MODE=dev_token`)
+- `DEV_AUTH_TOKEN_SEED` (used when `AUTH_SERVICE_MODE=dev_token`)
+- `RUN_LIVE_LLM_CONTRACT` (`0/1`; opt-in live contract test)
+- `OPENCLAW_AGENT_ID` (default `codex-orchestrator`)
+- `OPENCLAW_BACKEND_MODEL` (optional backend override for gateway routing)
+- `OPENCLAW_LIVE_CONTRACT_TIMEOUT_SECONDS`
+- `OPENCLAW_LIVE_CONTRACT_MAX_RETRIES`
+- `OPENCLAW_LIVE_CONTRACT_RETRY_BACKOFF_SECONDS`
+
+Intake extraction profile:
+- Default remains regex-first intake (`INTAKE_USE_LLM=0`) for deterministic local runs.
+- Enable `INTAKE_USE_LLM=1` only when LLM-assisted completion of missing brief fields is required.
+- `INTAKE_MODEL` is optional; when unset and LLM mode is enabled, intake falls back to `RESEARCH_MODEL`.
+
+Live LLM structured-output contract (opt-in):
+
+```powershell
+$env:RUN_LIVE_LLM_CONTRACT = "1"
+$env:OPENCLAW_BASE_URL = "http://127.0.0.1:18789"
+$env:OPENCLAW_AGENT_ID = "codex-orchestrator"
+$env:OPENCLAW_GATEWAY_TOKEN = "<gateway-token>"
+python -m pytest -q tests/test_live_llm_contract_optin.py
+```
+
+Keep this test opt-in for runtime verification and support evidence capture, not as mandatory default CI.
+If this test returns `401 Unauthorized`, refresh `OPENCLAW_GATEWAY_TOKEN` (or login/configure OpenClaw gateway auth) before retrying.
+
+Commercial auth profile (least-privilege seed example):
+
+```powershell
+$env:AUTH_SERVICE_MODE = "commercial_token"
+$env:AUTH_ENABLED = "true"
+$env:AUTH_TOKEN_SEED = "commercial-operator:ops-1:operator:human,commercial-approver:apr-1:approver:human"
+
+.\scripts\ai_work_system\release-readiness.ps1 `
+  -AutoSeedFullFlow `
+  -Authorization "Bearer commercial-approver" `
+  -RunOperatorSuite `
+  -OperatorAuthorizationOperator "Bearer commercial-operator" `
+  -OperatorRequireAuthEvidence `
+  -OperatorExpectedAuthRoles "operator,approver" `
+  -OperatorAuthPolicyMode strict `
+  -OperatorRequirePolicyAssertions `
+  -OperatorPolicyMode strict `
+  -OperatorEnforceModelAllowlist `
+  -OperatorFailOnBackendOverrideMismatch
+```
+
+In this mode, `AUTH_TOKEN_SEED` is authoritative for protected route authentication.
+Commercial token lifecycle state is persisted at `AUTH_TOKEN_STORE_PATH`.
+
+Commercial token lifecycle admin API (requires admin bearer token):
+
+```powershell
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8001/auth/tokens" -Headers @{ Authorization = "Bearer <admin-token>" }
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8001/auth/tokens/issue" -Headers @{ Authorization = "Bearer <admin-token>" } -ContentType "application/json" -Body '{"actor_id":"apr-2","actor_role":"approver","actor_type":"human","description":"ops approver"}'
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8001/auth/tokens/revoke" -Headers @{ Authorization = "Bearer <admin-token>" } -ContentType "application/json" -Body '{"token":"<issued-token>"}'
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8001/auth/tokens/rotate" -Headers @{ Authorization = "Bearer <admin-token>" } -ContentType "application/json" -Body '{"token":"<issued-token>"}'
+```
+
+These endpoints are available only in `AUTH_SERVICE_MODE=commercial_token`.
+
+Copy/paste env sample for this profile:
+
+```powershell
+Get-Content .\examples\env\commercial_auth_minimal.env | ForEach-Object {
+  if ($_ -and -not $_.StartsWith("#")) {
+    $name, $value = $_ -split "=", 2
+    Set-Item -Path ("Env:{0}" -f $name) -Value $value
+  }
+}
+```
 
 ## Database Migration
 
@@ -168,43 +322,43 @@ Or:
 Live:
 
 ```bash
-python -m app.main live
+python -m app.macro_pulser.main live
 ```
 
 Live once without remote schedule ingestion (local/dev fallback):
 
 ```bash
-python -m app.main live --once --skip-remote-schedules
+python -m app.macro_pulser.main live --once --skip-remote-schedules
 ```
 
 Backfill:
 
 ```bash
-python -m app.main backfill --from 2026-01-01T00:00:00Z --to 2026-03-01T00:00:00Z
+python -m app.macro_pulser.main backfill --from 2026-01-01T00:00:00Z --to 2026-03-01T00:00:00Z
 ```
 
 Replay:
 
 ```bash
-python -m app.main replay --release-id CPI-2026-04-10
+python -m app.macro_pulser.main replay --release-id CPI-2026-04-10
 ```
 
 API:
 
-```bash
-python -m app.main api
+```powershell
+.\scripts\macro_pulser\run-api.ps1
 ```
 
 Monitoring (single tick):
 
 ```bash
-python -m app.main monitor --once
+python -m app.macro_pulser.main monitor --once
 ```
 
 Monitoring (loop):
 
 ```bash
-python -m app.main monitor --loop
+python -m app.macro_pulser.main monitor --loop
 ```
 
 `monitor --once` is for deterministic local checks and CI smoke, while `monitor --loop` is for long-running watch mode.
@@ -212,39 +366,43 @@ python -m app.main monitor --loop
 Manual release seeding (YAML):
 
 ```bash
-python -m app.main seed-releases --file config/manual_releases.yaml
+python -m app.macro_pulser.main seed-releases --file config/manual_releases.yaml
 ```
 
 Manual actual seeding (YAML):
 
 ```bash
-python -m app.main seed-actuals --file config/manual_actuals.yaml
+python -m app.macro_pulser.main seed-actuals --file config/manual_actuals.yaml
 ```
 
 Manual market seeding (YAML):
 
 ```bash
-python -m app.main seed-markets --file config/manual_markets.yaml
+python -m app.macro_pulser.main seed-markets --file config/manual_markets.yaml
 ```
 
 Manual snapshot seeding (YAML):
 
 ```bash
-python -m app.main seed-snapshots --file config/manual_snapshots.yaml
+python -m app.macro_pulser.main seed-snapshots --file config/manual_snapshots.yaml
 ```
 
 Local BLS-free smoke (single command):
 
 ```powershell
-.\scripts\local-dev-smoke.ps1
+.\scripts\macro_pulser\local-dev-smoke.ps1
 ```
 
 Optional read-only API surface check (requires running API server):
 
 ```powershell
-python -m app.main api
-.\scripts\local-dev-smoke.ps1 -CheckReadOnlyApi -ApiBaseUrl http://127.0.0.1:8000
+.\scripts\macro_pulser\run-api.ps1
+.\scripts\macro_pulser\local-dev-smoke.ps1 -CheckReadOnlyApi -ApiBaseUrl http://127.0.0.1:8000
 ```
+
+Legacy compatibility aliases (still supported):
+- `python -m app.main api`
+- `.\scripts\local-dev-smoke.ps1`
 
 This runs:
 1. `seed-releases`
@@ -325,6 +483,357 @@ Operational note:
 - Local readiness profile uses `STATE_BACKEND=sqlite` and `STATE_BACKEND_STRICT=true`.
 - SQLite local operation is intentionally persistence-focused and is **not treated as a production-grade** concurrency validation profile.
 - Keep `OPENCLAW_CHAT_FAILURE_COOLDOWN_SECONDS` and `OPERATOR_API_TIMEOUT_SECONDS` explicitly configured for stable local operator runs.
+- For recovery operations, keep `SQLITE_BACKUP_DIR` configured (default: `logs/sqlite-backups`).
+
+SQLite recovery quick commands:
+
+```powershell
+.\scripts\sqlite-verify.ps1
+.\scripts\sqlite-backup.ps1 -Label pre-change
+.\scripts\sqlite-restore.ps1 -BackupManifestPath .\logs\sqlite-backups\<backup>.manifest.json -Force
+.\scripts\sqlite-export.ps1 -Label handoff -Zip
+```
+
+Recommended recovery check after restore:
+
+```powershell
+.\scripts\sqlite-verify.ps1
+.\scripts\operator-run.ps1 -BriefPath .\examples\briefs\sample_brief.json -TrendProvider gemini-flash-lite-latest
+.\scripts\operator-status.ps1 -ProjectId <project_id>
+```
+
+Replay evidence export (cycle/suite/readiness manifests):
+
+```powershell
+.\scripts\operator-replay-export.ps1 -ReadinessManifestPath .\logs\operational-readiness\readiness-manifest-<timestamp>.json -Zip
+.\scripts\operator-replay-export.ps1 -BundleManifestPath .\logs\operator-suites\<timestamp>\bundle-manifest.json
+.\scripts\operator-support-bundle.ps1 -ReadinessManifestPath .\logs\operational-readiness\readiness-manifest-<timestamp>.json -Zip
+```
+
+Support-bundle failure categories (`failure-classification.json` / `.md`):
+- `runtime`
+- `provider_auth`
+- `policy`
+- `semantic_output`
+- `persistence_restore`
+- `operator_flow`
+
+## Commercial pilot package (phase_9)
+
+Use these documents as the customer-facing pilot delivery kit:
+
+- `docs/commercial_pilot_delivery_kit.md`
+- `docs/commercial_pilot_support_runbook.md`
+- `docs/commercial_pilot_scope_and_constraints.md`
+- `docs/commercial_pilot_acceptance_checklist.md`
+- `docs/commercial_pilot_handoff_checklist.md`
+- `docs/commercial_pilot_inquiry_template.md`
+
+Operator-first package flow:
+
+```powershell
+.\scripts\ai_work_system\start-server.ps1 -UseOpenClawDefaultProfile -OpenClawBackendModel openai-codex/gpt-5.2
+.\scripts\openclaw-gateway-check.ps1 -AgentId codex-orchestrator -BackendModel openai-codex/gpt-5.2
+.\scripts\ai_work_system\release-readiness.ps1 -AutoSeedFullFlow -Authorization "Bearer dev-approver-token" -RunOperatorSuite -OperatorAuthorizationOperator "Bearer dev-operator-token" -OperatorRequireStageTelemetry -OperatorMaxLlmTransportFallbacks 0 -OperatorRequirePolicyAssertions -OperatorPolicyMode strict -OperatorEnforceModelAllowlist -OperatorFailOnBackendOverrideMismatch -OperatorRequireAuthEvidence -OperatorExpectedAuthRoles "operator,approver" -OperatorAuthPolicyMode strict -OperatorMaxRevisionReplanAttempts 3
+.\scripts\operator-support-bundle.ps1 -ReadinessManifestPath .\logs\operational-readiness\readiness-manifest-<timestamp>.json -Zip
+```
+
+## Self-serve productization baseline (phase_10)
+
+Self-serve packaging references:
+
+- `docs/self_serve_distribution_kit_baseline.md`
+- `docs/self_serve_onboarding_guardrails.md`
+- `docs/self_serve_update_rollback_safety.md`
+
+These documents define initial setup guardrails, distribution baseline, and update/rollback data-safety requirements without relaxing strict policy controls.
+
+Self-serve preflight command:
+
+```powershell
+.\scripts\self-serve-preflight.ps1 -EnvPath .\.env
+```
+
+Self-serve update/support/handoff commands:
+
+```powershell
+.\scripts\self-serve-update-guard.ps1 -ReadinessManifestPath .\logs\operational-readiness\readiness-manifest-<timestamp>.json -Zip
+.\scripts\self-serve-support-intake.ps1 -ReadinessManifestPath .\logs\operational-readiness\readiness-manifest-<timestamp>.json -Zip
+.\scripts\self-serve-handoff-package.ps1 -ReadinessManifestPath .\logs\operational-readiness\readiness-manifest-<timestamp>.json -Zip
+```
+
+## Commercial launch governance baseline (phase_11 closeout)
+
+Launch-governance references:
+
+- `docs/release_governance_baseline.md`
+- `docs/release_notes_template.md`
+- `docs/release_notes_phase11_example.md`
+- `docs/known_issues_register.md`
+- `docs/commercial_launch_support_boundary.md`
+- `docs/commercial_launch_sla_lite.md`
+- `docs/commercial_launch_go_no_go_checklist.md`
+
+Representative evidence packaging commands:
+
+```powershell
+.\scripts\operator-support-bundle.ps1 -ReadinessManifestPath .\logs\operational-readiness\readiness-manifest-<timestamp>.json
+.\scripts\self-serve-support-intake.ps1 -SupportBundleManifestPath .\logs\self-serve\phase11-launch-evidence-<timestamp>\support-bundle.manifest.json
+.\scripts\self-serve-handoff-package.ps1 -ReadinessManifestPath .\logs\operational-readiness\readiness-manifest-<timestamp>.json -SupportIntakeManifestPath .\logs\self-serve\phase11-launch-evidence-<timestamp>\support-intake.manifest.json
+```
+
+## Post-launch support trend loop (phase_12)
+
+Post-launch operations use launch-week evidence review to keep runbooks aligned with recurring support patterns:
+
+- `docs/launch_week_support_trend_review.md`
+- `docs/launch_week_runbook_delta_backlog.md`
+- `docs/phase12_recurring_issue_hardening.md`
+
+Generate/update trend + backlog from recent support bundles:
+
+```powershell
+.\scripts\launch-week-trend-review.ps1 -WindowDays 7
+```
+
+Generate recurring issue hardening actions from the latest trend manifest:
+
+```powershell
+.\scripts\support-recurring-hardening.ps1
+```
+
+## Post-launch feedback operationalization (phase_13)
+
+Convert support evidence into triage, scoring, known-issue routing, and release-backlog outputs:
+
+- `docs/post_launch_issue_triage.md`
+- `docs/post_launch_priority_scoring.md`
+- `docs/known_issue_routing.md`
+- `docs/post_launch_release_backlog_flow.md`
+
+```powershell
+.\scripts\post-launch-triage.ps1
+.\scripts\post-launch-priority-score.ps1
+.\scripts\known-issue-route.ps1
+.\scripts\post-launch-backlog-export.ps1
+```
+
+## Release-train automation and GA-readiness (phase_14)
+
+Transform post-launch backlog artifacts into release candidate, go/hold/rollback decision, notes/publication routing, and evidence package outputs:
+
+- `docs/release_candidate_promotion.md`
+- `docs/release_go_hold_rollback_decision.md`
+- `docs/release_note_publication_flow.md`
+- `docs/release_train_evidence_flow.md`
+
+```powershell
+.\scripts\release-candidate-promote.ps1
+.\scripts\release-decision-package.ps1
+.\scripts\release-notes-assemble.ps1
+.\scripts\known-issue-publication-route.ps1
+.\scripts\release-train-evidence-export.ps1 -Zip
+```
+
+## GA launch execution and early-operations stabilization (phase_15)
+
+Phase_15 starts by executing one GA launch package end-to-end from the current release-train inputs:
+
+- `docs/ga_launch_execution_baseline.md`
+- `docs/phase15_early_operations_stabilization.md`
+- `docs/phase15_hotfix_next_release_routing.md`
+- `docs/phase15_evidence_closure.md`
+
+```powershell
+.\scripts\ga-launch-package-execute.ps1 -Zip
+.\scripts\early-ops-incident-loop.ps1 -WindowDays 7
+.\scripts\hotfix-next-release-route.ps1
+.\scripts\phase15-evidence-closeout.ps1 -Zip
+```
+
+## GA adoption reliability and self-serve stabilization (phase_16)
+
+Phase_16 starts with a deterministic weekly reliability review loop over support evidence:
+
+- `docs/phase16_ga_weekly_reliability_review.md`
+
+```powershell
+.\scripts\ga-weekly-reliability-review.ps1 -WindowDays 7 -Zip
+```
+
+Primary outputs:
+- `logs\ga-adoption\weekly-review-<timestamp>\ga-weekly-reliability-review.manifest.json`
+- `logs\ga-adoption\weekly-review-<timestamp>\ga-weekly-reliability-review.summary.json`
+
+## GA steady-state scaling and customer-success governance (phase_17)
+
+Aggregate weekly reliability evidence into a deterministic monthly KPI/closure-SLA package:
+
+- `docs/phase17_monthly_reliability_governance.md`
+- `docs/phase17_closure_sla_routing.md`
+
+```powershell
+.\scripts\ga-monthly-reliability-targets.ps1 -WindowDays 30 -Zip
+.\scripts\ga-closure-sla-breach-route.ps1 -Zip
+```
+
+Outputs:
+
+- `logs\ga-adoption\monthly-targets-<timestamp>\ga-monthly-reliability-targets.manifest.json`
+- `logs\ga-adoption\monthly-targets-<timestamp>\ga-monthly-reliability-targets.summary.json`
+- `logs\ga-adoption\closure-sla-routing-<timestamp>\ga-closure-sla-routing.manifest.json`
+- `logs\ga-adoption\closure-sla-routing-<timestamp>\ga-closure-sla-routing.summary.json`
+
+## Quarterly GA governance and scale planning (phase_18)
+
+Generate quarterly governance package outputs from monthly reliability and closure-SLA routing evidence:
+
+- `docs/phase18_quarterly_governance.md`
+
+```powershell
+.\scripts\ga-quarterly-reliability-governance.ps1 -WindowDays 90 -Zip
+.\scripts\ga-quarterly-closure-sla-ownership.ps1 -WindowDays 90 -Zip
+.\scripts\ga-quarterly-review-package.ps1 -Zip
+```
+
+Outputs:
+
+- `logs\ga-adoption\quarterly-reliability-<timestamp>\ga-quarterly-reliability-governance.manifest.json`
+- `logs\ga-adoption\quarterly-closure-ownership-<timestamp>\ga-quarterly-closure-sla-ownership.manifest.json`
+- `logs\ga-adoption\quarterly-review-package-<timestamp>\ga-quarterly-review-package.manifest.json`
+
+## Upgrade and migration safety operations (phase_19)
+
+Convert quarterly governance outputs into deterministic upgrade impact, migration rehearsal, rollback safety, and closeout evidence packages:
+
+- `docs/phase19_upgrade_migration_safety.md`
+
+```powershell
+.\scripts\ga-upgrade-impact-matrix.ps1 -Zip
+.\scripts\ga-migration-rehearsal-package.ps1 -Zip
+.\scripts\ga-upgrade-rollback-safety.ps1 -Zip
+.\scripts\ga-upgrade-evidence-closeout.ps1 -Zip
+```
+
+Outputs:
+
+- `logs\ga-upgrade\impact-matrix-<timestamp>\ga-upgrade-impact-matrix.manifest.json`
+- `logs\ga-upgrade\migration-rehearsal-<timestamp>\ga-migration-rehearsal-package.manifest.json`
+- `logs\ga-upgrade\rollback-safety-<timestamp>\ga-upgrade-rollback-safety.manifest.json`
+- `logs\ga-upgrade\phase19-closeout-<timestamp>\phase19-upgrade-evidence-closeout.manifest.json`
+
+## Environment compatibility and support-at-scale baseline (phase_20)
+
+Generate compatibility matrix, preflight report, support-intake normalization, and closeout package:
+
+```powershell
+.\scripts\ga-supported-environment-matrix.ps1 -Zip
+.\scripts\ga-compatibility-preflight.ps1 -Zip
+.\scripts\ga-support-intake-normalization.ps1 -Zip
+.\scripts\ga-environment-support-closeout.ps1 -Zip
+```
+
+Reference doc:
+- `docs/phase20_environment_compatibility_support.md`
+
+## Auditability, retention, and compliance-lite governance (phase_21)
+
+Generate retention coverage, traceability index, incident/change ledger, and closeout package:
+
+```powershell
+.\scripts\ga-artifact-retention-coverage.ps1 -Zip
+.\scripts\ga-audit-traceability-index.ps1 -Zip
+.\scripts\ga-incident-change-ledger.ps1 -Zip
+.\scripts\ga-auditability-closeout.ps1 -Zip
+```
+
+Reference doc:
+- `docs/phase21_auditability_retention_governance.md`
+
+## Steady-state commercial operations closure (phase_22)
+
+Generate handbook package, cadence baseline, end-to-end evidence, and steady-state closeout:
+
+```powershell
+.\scripts\ga-steady-state-operations-handbook.ps1 -Zip
+.\scripts\ga-release-ops-cadence-baseline.ps1 -Zip
+.\scripts\ga-end-to-end-operations-evidence.ps1 -Zip
+.\scripts\ga-steady-state-closeout.ps1 -Zip
+```
+
+Reference docs:
+- `docs/steady_state_operations_handbook.md`
+- `docs/release_ops_cadence_baseline.md`
+- `docs/phase22_steady_state_operations_closure.md`
+
+## Steady-state bounded improvement backlog
+
+Generate a deterministic remediation backlog from phase_20/21/22 closeout outcomes:
+
+```powershell
+.\scripts\ga-steady-state-improvement-backlog.ps1 -Zip
+```
+
+Reference doc:
+- `docs/steady_state_improvement_backlog.md`
+
+## Steady-state watch backlog burn-down
+
+Track open steady-state backlog trend and closure pressure:
+
+```powershell
+.\scripts\ga-steady-state-burndown.ps1 -Zip
+```
+
+Reference doc:
+- `docs/steady_state_burndown_tracking.md`
+
+## Steady-state checkpoint refresh
+
+Refresh monthly, quarterly, and release checkpoint evidence into a single steady-state package:
+
+```powershell
+.\scripts\ga-steady-state-checkpoint-refresh.ps1 -Zip
+```
+
+Reference doc:
+- `docs/steady_state_checkpoint_refresh.md`
+
+## Steady-state watchlist ownership routing
+
+Route steady-state checkpoint `watch` / `escalate` items to deterministic owner tracking:
+
+```powershell
+.\scripts\ga-steady-state-escalation-watchlist-route.ps1 -Zip
+```
+
+Owner acknowledgment rule example:
+
+```powershell
+.\scripts\ga-steady-state-escalation-watchlist-route.ps1 -OwnerAckPath .\docs\steady_state_watchlist_owner_ack.json -Zip
+```
+
+Reference doc:
+- `docs/steady_state_watchlist_ownership_routing.md`
+- `docs/steady_state_watchlist_owner_ack.json`
+
+## Steady-state single-entry runtime loop
+
+Run the full steady-state operational loop from one entrypoint:
+
+```powershell
+.\scripts\steady-state-run.ps1 -Mode daily -WatchlistOwnerAckPath .\docs\steady_state_watchlist_owner_ack.json -Zip
+```
+
+Weekly heavier cycle:
+
+```powershell
+.\scripts\steady-state-run.ps1 -Mode weekly -WatchlistOwnerAckPath .\docs\steady_state_watchlist_owner_ack.json -Zip
+```
+
+Runtime loop references:
+- `docs/steady_state_runtime_loop.md`
+- `docs/steady_state_runtime_state.json`
 
 ## API Endpoints
 
@@ -339,6 +848,19 @@ Operational note:
 - `GET /monitoring/events/open`
 - `POST /jobs/backfill` (requires `Authorization: Bearer <API_WRITE_TOKEN>`)
 - `POST /jobs/replay` (requires `Authorization: Bearer <API_WRITE_TOKEN>`)
+
+Read-only observability surfaces (internal beta contract):
+- `GET /status`:
+  - `latest_live_cycle_success_at_utc`
+  - `release_calendar_count`, `release_actuals_count`, `market_catalog_count`, `market_snapshots_count`, `signals_count`
+  - `open_monitor_events_count`, `resolved_monitor_events_count`
+  - `monitoring_status`
+- `GET /monitor`:
+  - `monitor_type`, `status`, `severity`, `dedupe_key`, `updated_at_utc`, `resolved_at_utc`
+  - default limit: 20
+- `GET /signals`:
+  - `signal_id`, `release_id`, `market_ticker`, `signal_type`, `score`, `severity`, `emitted_at_utc`
+  - supports `limit` (default 20) and optional `severity`
 
 ## MVP Completion Criteria
 
@@ -364,10 +886,20 @@ Manual seed roles in local BLS-free mode:
 ### 2. Internal Beta Pass
 
 Internal beta readiness expects:
-- repeatable runs via `.\scripts\local-dev-smoke.ps1`
+- repeatable runs via `.\scripts\macro_pulser\local-dev-smoke.ps1`
 - deterministic smoke summary visibility (counts, latest signals, open/resolved monitor events)
+- read-only observability checks in fixed order: `/status` -> `/monitor` -> `/signals`
 - documented operator workflow and readiness runbook coverage
 - Telegram notification paths validated in an internal non-production chat
+
+Internal beta execution interpretation:
+- `PASS`: smoke returns `LOCAL DEV SMOKE: PASS` and read-only checks are reachable with current scenario data.
+- `REVIEW`: smoke returns `LOCAL DEV SMOKE: REVIEW` or open monitor criticals need triage.
+- `STOP`: smoke command fails or required read-only surfaces are unreachable.
+
+Local dev mode and internal beta are different gates:
+- local dev mode validates deterministic seeded behavior (`seed-*`, `live --once --skip-remote-schedules`, `monitor --once`)
+- internal beta validates repeatability and observability on top of local dev mode (smoke summary + `/status` + `/monitor` + `/signals`)
 
 ### 3. Production Readiness Remaining Gaps
 
@@ -384,8 +916,17 @@ Remaining gaps before production rollout include:
 - In local runs, use `monitor --once` to validate alert/event transitions after each deterministic cycle.
 - For watch mode, use `monitor --loop` and keep critical cooldown behavior enabled.
 - Read-only observability surfaces are available via API endpoints: `/status`, `/monitor`, `/signals`.
-- Internal beta quick path: run `.\scripts\local-dev-smoke.ps1`, then verify `/status`, `/monitor`, and `/signals`.
+- Internal beta quick path: run `.\scripts\macro_pulser\local-dev-smoke.ps1`, then verify `/status`, `/monitor`, and `/signals`.
 - Before broader deployment, rotate bot token/chat settings, separate dev/prod tokens, and validate send path with a non-production chat target.
+
+Read-only check commands (PowerShell, API server required):
+
+```powershell
+.\scripts\macro_pulser\run-api.ps1
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8000/status"
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8000/monitor?limit=20"
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8000/signals?limit=20"
+```
 
 ## Testing
 

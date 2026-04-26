@@ -1,0 +1,25 @@
+{
+  "title": "Operator workflow quick guide",
+  "objective": "このシステムの operator workflow を、初回担当者が迷わず実行できる1ページの運用手順として整理する",
+  "scope": "ローカル運用者向けの最短手順作成",
+  "constraints": [
+    "Windows PowerShell 前提",
+    "既存 scripts と runbook を前提にする",
+    "長文ではなく短い運用手順にする"
+  ],
+  "success_criteria": [
+    "サーバー起動手順が含まれている",
+    "readiness 実行手順が含まれている",
+    "operator-run から audit までの流れが含まれている",
+    "初回担当者が次の操作を迷わない"
+  ],
+  "deadline": null,
+  "stakeholders": [
+    "local operator"
+  ],
+  "assumptions": [
+    "APIキー設定は完了している",
+    "SQLite ローカル運用を前提とする"
+  ],
+  "raw_request": "この repo の現在の運用導線を前提に、初回担当者向けの短い運用手順を作成したいです。対象はローカル運用者です。含めたい内容は、サーバー起動、readiness 実行、brief 作成、operator-run、status 確認、approve / reject / revise / replan / audit の使い分け、最後に completed を確認する流れです。冗長な説明より、実行順が分かることを優先してください。"
+}

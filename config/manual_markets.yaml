@@ -1,0 +1,18 @@
+markets:
+  - market_ticker: CPI-DEV-APR18-ABOVE-3.1
+    platform: kalshi
+    title: "CPI YoY above 3.1%"
+    subtitle: ""
+    close_time_utc: "2026-04-18T02:00:00Z"
+    status: "active"
+    release_type: CPI
+    mapping_confidence: 1.0
+    mapping_payload_json:
+      manual_seed: true
+      source: "manual://market/cpi-dev-signal-test"
+      release_name: "CPI Dev Signal Test"
+      scheduled_time_utc: "2026-04-18T01:30:00Z"
+      threshold:
+        comparator: "above"
+        value: 3.1
+        unit: "%"

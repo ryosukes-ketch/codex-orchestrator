@@ -1,0 +1,25 @@
+{
+  "markets": [
+    {
+      "ticker": "CPI-APR26-ABOVE-3.1",
+      "title": "Will CPI be above 3.1% in Apr 2026?",
+      "subtitle": "Consumer Price Index YoY",
+      "status": "open",
+      "close_time": "2026-04-10T12:30:00Z"
+    },
+    {
+      "ticker": "NFP-MAY26-ABOVE-150K",
+      "title": "Will nonfarm payrolls be above 150k in May 2026?",
+      "subtitle": "Employment Situation",
+      "status": "open",
+      "close_time": "2026-05-03T12:30:00Z"
+    },
+    {
+      "ticker": "SPORTS-IGNORE",
+      "title": "Will Team A win tonight?",
+      "subtitle": "Sports event",
+      "status": "open",
+      "close_time": "2026-04-01T12:30:00Z"
+    }
+  ]
+}

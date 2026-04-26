@@ -1,0 +1,9 @@
+actuals:
+  - release_type: CPI
+    release_name: CPI Dev Signal Test
+    scheduled_time_utc: "2026-04-18T01:30:00Z"
+    actual_value_num: 3.3
+    actual_value_text: "Headline CPI YoY 3.3%"
+    source_url: "manual://actual/cpi-dev-signal-test"
+    released_at_utc: "2026-04-18T01:30:00Z"
+    status: "released"

@@ -43,11 +43,9 @@ if ($null -eq $health) {
     exit 1
 }
 
-if ($health.PSObject.Properties.Name -contains "status") {
-    if ($health.status -ne "ok") {
-        Write-Error ("Unexpected /health status: {0}" -f ($health | ConvertTo-Json -Compress))
-        exit 1
-    }
+if (-not ($health.PSObject.Properties.Name -contains "status") -or $health.status -ne "ok") {
+    Write-Error ("Unexpected /health status: {0}" -f ($health | ConvertTo-Json -Compress))
+    exit 1
 }
 
 Write-Host "[5/5] Preflight passed"

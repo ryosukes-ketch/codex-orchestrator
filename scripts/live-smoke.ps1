@@ -8,6 +8,8 @@ param(
     [string]$ReplanningProjectId = "",
     [string]$LogDir = "logs\operational-readiness",
     [int]$TimeoutSec = 20,
+    [int]$AuditAfterTimeoutSec = 30,
+    [int]$AuditAfterPollIntervalMs = 1000,
     [switch]$SkipPreflight,
     [switch]$NoRuff
 )
@@ -35,38 +37,40 @@ function Invoke-CurlJson {
         [string]$AuthHeader = ""
     )
 
-    $args = @("-sS", "-X", $Method, $Url, "-H", "Content-Type: application/json", "-w", "`n__STATUS__:%{http_code}")
+    $headers = @{ "Content-Type" = "application/json" }
     if (-not [string]::IsNullOrWhiteSpace($AuthHeader)) {
-        $args += @("-H", ("Authorization: " + $AuthHeader))
+        $headers["Authorization"] = $AuthHeader
+    }
+
+    $iwrParams = @{
+        Uri             = $Url
+        Method          = $Method
+        Headers         = $headers
+        UseBasicParsing = $true
     }
     if ($JsonBody -ne "") {
-        $args += @("-d", $JsonBody)
+        $iwrParams["Body"] = [System.Text.Encoding]::UTF8.GetBytes($JsonBody)
     }
 
-    $output = & curl.exe @args
-    if ($LASTEXITCODE -ne 0) {
-        throw "curl failed for $Method $Url"
-    }
-
-    $lines = @($output -split "`r?`n")
-    if ($lines.Count -eq 0) {
-        throw "No response for $Method $Url"
-    }
-
-    $statusLine = $lines[-1]
-    if ($statusLine -notmatch "^__STATUS__:(\d+)$") {
-        throw "Could not parse status line for $Method ${Url}: $statusLine"
-    }
-
-    $statusCode = [int]$Matches[1]
-    $bodyText = ""
-    if ($lines.Count -gt 1) {
-        $bodyText = ($lines[0..($lines.Count - 2)] -join "`n")
-    }
-
-    [pscustomobject]@{
-        StatusCode = $statusCode
-        BodyText = $bodyText
+    try {
+        $resp = Invoke-WebRequest @iwrParams
+        return [pscustomobject]@{
+            StatusCode = [int]$resp.StatusCode
+            BodyText   = $resp.Content
+        }
+    } catch [System.Net.WebException] {
+        $httpResp = $_.Exception.Response
+        if ($null -ne $httpResp) {
+            $statusCode = [int]$httpResp.StatusCode
+            $stream     = $httpResp.GetResponseStream()
+            $reader     = New-Object System.IO.StreamReader($stream)
+            $bodyText   = $reader.ReadToEnd()
+            return [pscustomobject]@{
+                StatusCode = $statusCode
+                BodyText   = $bodyText
+            }
+        }
+        throw
     }
 }
 
@@ -78,7 +82,7 @@ function Convert-BodyToJsonOrNull {
     }
 
     try {
-        return ($BodyText | ConvertFrom-Json -Depth 20)
+        return ($BodyText | ConvertFrom-Json)
     } catch {
         return $null
     }
@@ -103,6 +107,45 @@ function Get-Audit {
     }
 
     return $auditJson
+}
+
+function Wait-ForAuditStatus {
+    param(
+        [string]$FlowName,
+        [string]$ProjectIdValue,
+        [string]$ExpectedStatus,
+        [int]$StatusTimeoutSec = 30,
+        [int]$PollIntervalMs = 1000
+    )
+
+    $start = Get-Date
+    $attempt = 0
+    $lastAudit = $null
+    while ($true) {
+        $attempt++
+        $lastAudit = Get-Audit -FlowName $FlowName -ProjectIdValue $ProjectIdValue
+        if ($lastAudit.status -eq $ExpectedStatus) {
+            $elapsedSeconds = [math]::Round(((Get-Date) - $start).TotalSeconds, 3)
+            return [pscustomobject]@{
+                Matched = $true
+                Attempts = $attempt
+                ElapsedSeconds = $elapsedSeconds
+                Audit = $lastAudit
+            }
+        }
+
+        $elapsedSeconds = ((Get-Date) - $start).TotalSeconds
+        if ($elapsedSeconds -ge $StatusTimeoutSec) {
+            return [pscustomobject]@{
+                Matched = $false
+                Attempts = $attempt
+                ElapsedSeconds = [math]::Round($elapsedSeconds, 3)
+                Audit = $lastAudit
+            }
+        }
+
+        Start-Sleep -Milliseconds $PollIntervalMs
+    }
 }
 
 $records = New-Object System.Collections.Generic.List[object]
@@ -149,6 +192,7 @@ $flows = @(
         Name = "resume-approval"
         ProjectId = $ApprovalProjectId
         Path = "/orchestrator/resume/approval"
+        ExpectedStatusAfter = "completed"
         Body = {
             param($projectIdArg)
             @{
@@ -168,6 +212,7 @@ $flows = @(
         Name = "approval-reject"
         ProjectId = $RejectProjectId
         Path = "/orchestrator/approval/reject"
+        ExpectedStatusAfter = "revision_requested"
         Body = {
             param($projectIdArg)
             @{
@@ -187,6 +232,7 @@ $flows = @(
         Name = "resume-revision"
         ProjectId = $RevisionProjectId
         Path = "/orchestrator/resume/revision"
+        ExpectedStatusAfter = "ready_for_planning"
         Body = {
             param($projectIdArg)
             @{
@@ -207,6 +253,7 @@ $flows = @(
         Name = "replanning-start"
         ProjectId = $ReplanningProjectId
         Path = "/orchestrator/replanning/start"
+        ExpectedStatusAfter = "completed"
         Body = {
             param($projectIdArg)
             @{
@@ -281,10 +328,43 @@ if ($activeFlows.Count -eq 0) {
         Add-Record -Step $flow.Name -ProjectIdValue $projectIdValue -StatusCode 200 -Outcome "ok" -Details ("status=" + $responseJson.summary.status)
 
         Write-Host ("  [audit-after] {0} {1}" -f $flow.Name, $projectIdValue)
-        $auditAfter = Get-Audit -FlowName ($flow.Name + "-after") -ProjectIdValue $projectIdValue
-        Add-Record -Step ($flow.Name + "-audit-after") -ProjectIdValue $projectIdValue -StatusCode 200 -Outcome "ok" -Details ("status=" + $auditAfter.status)
+        $auditAfterResult = Wait-ForAuditStatus `
+            -FlowName ($flow.Name + "-after") `
+            -ProjectIdValue $projectIdValue `
+            -ExpectedStatus $flow.ExpectedStatusAfter `
+            -StatusTimeoutSec $AuditAfterTimeoutSec `
+            -PollIntervalMs $AuditAfterPollIntervalMs
+        $auditAfter = $auditAfterResult.Audit
 
-        Write-Host ("  [ok] {0} -> 200" -f $flow.Name)
+        if (-not $auditAfterResult.Matched) {
+            $failureDetails = (
+                "expected_status={0} actual_status={1} attempts={2} waited_seconds={3} timeout_seconds={4}" -f
+                $flow.ExpectedStatusAfter,
+                $auditAfter.status,
+                $auditAfterResult.Attempts,
+                $auditAfterResult.ElapsedSeconds,
+                $AuditAfterTimeoutSec
+            )
+            Add-Record -Step ($flow.Name + "-audit-after") -ProjectIdValue $projectIdValue -StatusCode 200 -Outcome "failed" -Details $failureDetails
+            Write-Error (
+                "Status assertion failed for {0}: expected [{1}] got [{2}] after {3}s ({4} attempts)." -f
+                $flow.Name,
+                $flow.ExpectedStatusAfter,
+                $auditAfter.status,
+                $auditAfterResult.ElapsedSeconds,
+                $auditAfterResult.Attempts
+            )
+            exit 1
+        }
+
+        Add-Record -Step ($flow.Name + "-audit-after") -ProjectIdValue $projectIdValue -StatusCode 200 -Outcome "ok" -Details (
+            "expected_status={0} actual_status={1} attempts={2} waited_seconds={3}" -f
+            $flow.ExpectedStatusAfter,
+            $auditAfter.status,
+            $auditAfterResult.Attempts,
+            $auditAfterResult.ElapsedSeconds
+        )
+        Write-Host ("  [ok] {0} -> 200 status={1}" -f $flow.Name, $auditAfter.status)
     }
 }
 
@@ -297,7 +377,7 @@ Write-Host ("  [ok] " + $logPath)
 
 Write-Host "[4/4] ruff"
 if (-not $NoRuff) {
-    & $ruffExe "check" "scripts" "README.md"
+    & $ruffExe "check" "app" "tests"
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 

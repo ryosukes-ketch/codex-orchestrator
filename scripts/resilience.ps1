@@ -9,6 +9,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
+. (Join-Path $PSScriptRoot "test-targets.ps1")
 
 $pythonExe = Join-Path $repoRoot ".venv\Scripts\python.exe"
 $ruffExe = Join-Path $repoRoot ".venv\Scripts\ruff.exe"
@@ -22,11 +23,7 @@ if (-not $SkipPreflight) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-$targets = @(
-    "tests/test_api.py",
-    "tests/test_orchestrator.py",
-    "tests/test_dry_run_orchestration.py"
-)
+$targets = Get-OperationalPytestTargets
 
 $keyword = "idempot or checkpoint or artifact or approval_requested or approvals or replanning or revision or reject or resume"
 
@@ -37,8 +34,8 @@ for ($i = 1; $i -le $Repeat; $i++) {
 }
 
 if (-not $NoRuff) {
-    Write-Host "[ruff] scripts and README"
-    & $ruffExe "check" "scripts" "README.md"
+    Write-Host "[ruff] app and tests"
+    & $ruffExe "check" "app" "tests"
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 

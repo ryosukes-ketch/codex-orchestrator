@@ -31,6 +31,7 @@ from app.state.repository import (
     InMemoryProjectRepository,
     PostgresProjectRepository,
     ProjectRepository,
+    SqliteProjectRepository,
     create_repository_from_env,
 )
 
@@ -67,6 +68,7 @@ def test_state_package_reexports_repository_symbols() -> None:
     assert state_pkg.ProjectRepository is ProjectRepository
     assert state_pkg.InMemoryProjectRepository is InMemoryProjectRepository
     assert state_pkg.PostgresProjectRepository is PostgresProjectRepository
+    assert state_pkg.SqliteProjectRepository is SqliteProjectRepository
     assert state_pkg.create_repository_from_env is create_repository_from_env
 
 

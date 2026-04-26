@@ -1,0 +1,6 @@
+releases:
+  - release_type: CPI
+    release_name: CPI Dev Signal Test
+    scheduled_time_utc: "2026-04-18T01:30:00Z"
+    source_url: "manual://seed/cpi-dev-signal-test"
+    status: "scheduled"

@@ -19,10 +19,14 @@ if ($ApiOnly) {
     $pytestArgs += "tests/test_api.py"
 }
 
+Write-Host "[1/2] Full pytest"
 & $pythonExe @pytestArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 if (-not $NoRuff) {
+    Write-Host "[2/2] Ruff check"
     & $ruffExe "check" "."
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
+
+Write-Host "[done] verify passed"

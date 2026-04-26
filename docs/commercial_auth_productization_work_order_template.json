@@ -1,0 +1,40 @@
+{
+  "work_order_id": "wo_auth_productization_001",
+  "title": "Commercial auth productization batch",
+  "objective": "Implement the next smallest approved auth hardening change without relaxing strict policy behavior.",
+  "assigned_department": "implementation_department",
+  "inputs": {
+    "task_summary": "Describe one bounded auth hardening task.",
+    "required_files": [
+      "app/services/auth.py",
+      "app/api/routes.py",
+      "app/api/dependencies.py",
+      "app/orchestrator/service.py"
+    ],
+    "optional_files": [
+      "docs/operator_workflow_runbook.md",
+      "docs/operational_startup_runbook.md",
+      "docs/operational_readiness_runbook.md"
+    ],
+    "constraints": [
+      "No strict auth/policy relaxation",
+      "No client actor trust over server-authenticated identity",
+      "No broad architecture rewrite",
+      "No database migration without explicit review"
+    ]
+  },
+  "verification": {
+    "commands": [
+      "python -m pytest -q tests/test_api.py tests/test_integration_auth_approval.py",
+      "python -m pytest -q tests/test_doc_consistency.py",
+      "python -m ruff check app tests"
+    ],
+    "expected_result": "pass"
+  },
+  "completion_criteria": [
+    "Bounded auth change is implemented",
+    "Auth/approval evidence remains auditable",
+    "Targeted tests pass",
+    "Docs/evidence are synchronized"
+  ]
+}

@@ -3,6 +3,10 @@ param(
     [switch]$CheckReadOnlyApi
 )
 
+# Legacy compatibility entrypoint for MacroPulser local smoke.
+# Preferred split entrypoint:
+#   scripts\macro_pulser\local-dev-smoke.ps1
+
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 Set-Location D:\codex

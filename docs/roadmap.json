@@ -1,5 +1,5 @@
 {
-  "current_phase": "phase_4",
+  "current_phase": "steady_state",
   "phases": [
     {
       "id": "phase_1",
@@ -19,7 +19,7 @@
     {
       "id": "phase_4",
       "name": "production-hardening for continuation workflow",
-      "status": "active",
+      "status": "done",
       "goals": [
         "Preserve the authenticated approval model",
         "Strengthen structured decision-making for continuation",
@@ -62,6 +62,754 @@
         "Move from dev token mapping to JWT/OIDC validation",
         "Add policy management validation and auditability",
         "Prepare body actor deprecation"
+      ]
+    },
+    {
+      "id": "phase_6",
+      "name": "live-operation rollout for real briefs",
+      "status": "done",
+      "goals": [
+        "Run real operator briefs through the live OpenClaw-enabled workflow",
+        "Capture manifest-first audit, telemetry, handoff, and gate evidence for real briefs",
+        "Fix a practical operational baseline for repeatable local single-operator use"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p6_t1",
+          "title": "Activate phase_6 governance artifacts and support-layer defaults",
+          "status": "done"
+        },
+        {
+          "id": "p6_t2",
+          "title": "Add a reusable low-risk real brief example for live operation",
+          "status": "done"
+        },
+        {
+          "id": "p6_t3",
+          "title": "Execute one approved real brief bundle with stage telemetry and zero transport fallback budget",
+          "status": "done"
+        },
+        {
+          "id": "p6_t4",
+          "title": "Record real brief operational success in staging execution evidence",
+          "status": "done"
+        },
+        {
+          "id": "p6_t5",
+          "title": "Remove OpenClaw upstream non_json_response stage fallbacks so live semantic output no longer degrades to deterministic fallback",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "phase_7",
+      "name": "auth-hardening and policy-operations for live runs",
+      "status": "done",
+      "goals": [
+        "Fix live-run auth boundaries so operator and approver responsibilities remain auditable and separate",
+        "Enforce strict-mode provider/model allowlists to prevent upstream routing drift",
+        "Separate normal, strict, and breakglass execution modes without weakening strict completed-only policy",
+        "Strengthen policy-level audit and manifest evidence for allow/deny/override decisions"
+      ],
+      "non_goals": [
+        "No broad orchestrator redesign",
+        "No new provider family onboarding",
+        "No strict-gate relaxation to accept revision_requested as success",
+        "No latency optimization work as a substitute for policy controls"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p7_t1",
+          "title": "Define strict allowlist policy surface for effective agent/provider/model selection and enforce deny-on-mismatch behavior",
+          "status": "done"
+        },
+        {
+          "id": "p7_t2",
+          "title": "Harden operator/approver auth boundary rules and make auth source/mode explicit in audit evidence",
+          "status": "done"
+        },
+        {
+          "id": "p7_t3",
+          "title": "Add breakglass mode policy with mandatory reason, actor traceability, and explicit audit markers",
+          "status": "done"
+        },
+        {
+          "id": "p7_t4",
+          "title": "Extend operator stage-gate assertions for strict policy invariants and deny-reason evidence",
+          "status": "done"
+        },
+        {
+          "id": "p7_t5",
+          "title": "Synchronize README/runbooks/.env guidance for normal/strict/breakglass operations",
+          "status": "done"
+        },
+        {
+          "id": "p7_t6",
+          "title": "Add tests for allowlist deny, auth boundary failures, breakglass traceability, and policy evidence consistency",
+          "status": "done"
+        }
+      ],
+      "completion_criteria": [
+        "Strict live runs pass only when effective provider/model are allowlisted",
+        "Strict live runs record effective agent/provider/model and auth source/mode in audit evidence",
+        "Breakglass usage is explicitly marked with reason and actor in audit/manifest outputs",
+        "Operator scripts, runbooks, and policy tests stay synchronized for normal/strict/breakglass behavior"
+      ]
+    },
+    {
+      "id": "phase_8",
+      "name": "product-hardening for commercial pilot",
+      "status": "done",
+      "goals": [
+        "Package the local operational system for repeatable assisted pilot onboarding",
+        "Standardize sqlite-backed startup and recovery workflows for commercial pilot environments",
+        "Strengthen support diagnostics and evidence capture for live OpenClaw runtime incidents",
+        "Keep phase_7 strict auth/policy guarantees intact while improving operator usability"
+      ],
+      "non_goals": [
+        "No strict completed-only policy relaxation",
+        "No new provider family onboarding",
+        "No broad orchestrator architecture redesign"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p8_t1",
+          "title": "Commercial-pilot baseline hardening for sqlite defaults, startup checks, support diagnostics, and onboarding docs",
+          "status": "done"
+        },
+        {
+          "id": "p8_t2",
+          "title": "Standardize backup/restore/export operational runbook and operator replay evidence flow",
+          "status": "done"
+        },
+        {
+          "id": "p8_t3",
+          "title": "Add pilot support-bundle collection workflow with failure classification guidance",
+          "status": "done"
+        },
+        {
+          "id": "p8_t4",
+          "title": "Validate commercial-pilot readiness baseline with strict release-readiness evidence package",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "phase_9",
+      "name": "commercial-pilot packaging and support readiness",
+      "status": "done",
+      "goals": [
+        "Package a customer-facing pilot delivery kit with stable onboarding instructions",
+        "Standardize customer support intake and failure triage workflow for pilot incidents",
+        "Fix commercial pilot acceptance criteria and completion evidence templates",
+        "Preserve strict auth/policy invariants while improving operator handoff usability"
+      ],
+      "non_goals": [
+        "No strict completed-only policy relaxation",
+        "No new provider family onboarding",
+        "No broad orchestrator architecture redesign"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p9_t1",
+          "title": "Pilot delivery kit baseline (setup, operations, support bundle, inquiry template, known constraints, acceptance checklist)",
+          "status": "done"
+        },
+        {
+          "id": "p9_t2",
+          "title": "Support workflow and failure classification packaging for customer-first incident intake",
+          "status": "done"
+        },
+        {
+          "id": "p9_t3",
+          "title": "Commercial pilot acceptance and operator handoff package closure",
+          "status": "done"
+        },
+        {
+          "id": "p9_t4",
+          "title": "Pilot evidence closure run and staging record update",
+          "status": "done"
+        }
+      ],
+      "completion_criteria": [
+        "Pilot delivery kit docs are available and cross-linked from README/runbooks",
+        "Support bundle collection and failure classification workflow are documented for customer-facing intake",
+        "Pilot acceptance checklist and handoff checklist are defined with deterministic artifact expectations",
+        "At least one pilot evidence package is recorded in staging execution evidence before phase closure"
+      ]
+    },
+    {
+      "id": "phase_10",
+      "name": "self-serve productization and commercial readiness",
+      "status": "done",
+      "goals": [
+        "Prepare self-serve distribution kit foundations for customer-managed setup and startup",
+        "Add onboarding guardrails so misconfiguration is detected before runtime failures",
+        "Define release/update/rollback guidance that protects sqlite state and evidence artifacts",
+        "Standardize support-safe evidence collection for commercial handoff operations"
+      ],
+      "non_goals": [
+        "No strict completed-only policy relaxation",
+        "No new provider family onboarding",
+        "No broad orchestrator architecture redesign",
+        "No OpenClaw upstream re-architecture inside this repository"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p10_t1",
+          "title": "Distribution kit baseline for self-serve setup/startup with deterministic prerequisites",
+          "status": "done"
+        },
+        {
+          "id": "p10_t2",
+          "title": "Config validation and onboarding guardrails for required env/runtime contracts",
+          "status": "done"
+        },
+        {
+          "id": "p10_t3",
+          "title": "Update/rollback and data-safety playbook for sqlite/logs/manifests retention",
+          "status": "done"
+        },
+        {
+          "id": "p10_t4",
+          "title": "Support-safe packaging policy for artifact minimization and inquiry intake",
+          "status": "done"
+        },
+        {
+          "id": "p10_t5",
+          "title": "Commercial handoff readiness package and final evidence closure",
+          "status": "done"
+        }
+      ],
+      "completion_criteria": [
+        "Self-serve distribution kit docs and checks are available from README/runbooks",
+        "Onboarding guardrails define deterministic preflight validation for required settings",
+        "Update/rollback guidance includes sqlite safety and evidence preservation",
+        "Support-safe evidence flow is documented and validated through pilot artifacts"
+      ]
+    },
+    {
+      "id": "phase_11",
+      "name": "release governance and commercial launch readiness",
+      "status": "done",
+      "goals": [
+        "Standardize release units and launch governance for customer-facing delivery.",
+        "Define versioning, release notes, known issues, and rollback signaling for commercial operations.",
+        "Fix support boundary and escalation ownership for launch-phase incidents.",
+        "Preserve strict auth/policy invariants while moving from pilot packaging to launch readiness."
+      ],
+      "non_goals": [
+        "No strict completed-only policy relaxation",
+        "No provider family expansion",
+        "No broad orchestrator architecture redesign",
+        "No OpenClaw upstream contract re-architecture inside this repository"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p11_t1",
+          "title": "Release governance baseline (versioning, release notes, known issues, rollback signaling)",
+          "status": "done"
+        },
+        {
+          "id": "p11_t2",
+          "title": "Commercial launch support boundary and escalation matrix standardization",
+          "status": "done"
+        },
+        {
+          "id": "p11_t3",
+          "title": "SLA-lite baseline and incident classification alignment for launch operations",
+          "status": "done"
+        },
+        {
+          "id": "p11_t4",
+          "title": "Commercial launch checklist and deterministic go/hold/rollback decision gate",
+          "status": "done"
+        },
+        {
+          "id": "p11_t5",
+          "title": "Phase_11 evidence closure package and roadmap closeout sync",
+          "status": "done"
+        }
+      ],
+      "completion_criteria": [
+        "Release governance artifacts define deterministic versioning/release-note/known-issues workflow.",
+        "Launch support boundary and escalation ownership are documented and test-referenced.",
+        "At least one launch-readiness evidence package is recorded with go/no-go decision traceability.",
+        "Strict policy/auth invariants remain unchanged across launch packaging updates."
+      ]
+    },
+    {
+      "id": "phase_12",
+      "name": "post-launch operational hardening and adoption feedback loop",
+      "status": "done",
+      "goals": [
+        "Stabilize commercial launch operations using first customer onboarding feedback.",
+        "Prioritize recurring support patterns into deterministic runbook and artifact updates.",
+        "Preserve strict auth/policy invariants while tightening operational response quality."
+      ],
+      "non_goals": [
+        "No strict completed-only policy relaxation",
+        "No provider family expansion",
+        "No broad orchestrator architecture redesign",
+        "No SaaS control-plane implementation"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p12_t1",
+          "title": "Launch-week support trend review and runbook delta backlog",
+          "status": "done"
+        },
+        {
+          "id": "p12_t2",
+          "title": "Recurring issue pattern hardening for support-safe evidence workflows",
+          "status": "done"
+        }
+      ],
+      "completion_criteria": [
+        "Launch-week trend review outputs are generated from support-bundle evidence on a bounded window.",
+        "Recurring issue hardening actions are derived into deterministic runbook/script backlog candidates.",
+        "Support-safe evidence quality checks (schema/completeness/signal normalization) are documented and executable.",
+        "Phase_12 artifacts are reflected in README/runbooks with evidence-backed staging records."
+      ]
+    },
+    {
+      "id": "phase_13",
+      "name": "post-launch feedback operationalization and backlog governance",
+      "status": "done",
+      "goals": [
+        "Operationalize post-launch support evidence into deterministic backlog routing and release decision inputs.",
+        "Define repeatable issue triage, priority scoring, and known-issue routing for launch operations.",
+        "Preserve strict auth/policy invariants while converting recurring support signals into actionable governance outputs."
+      ],
+      "non_goals": [
+        "No strict completed-only policy relaxation",
+        "No provider family expansion",
+        "No broad orchestrator architecture redesign",
+        "No SaaS control-plane implementation"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p13_t1",
+          "title": "Issue-to-backlog triage baseline for post-launch support evidence",
+          "status": "done"
+        },
+        {
+          "id": "p13_t2",
+          "title": "Priority scoring baseline for recurring support and launch issues",
+          "status": "done"
+        },
+        {
+          "id": "p13_t3",
+          "title": "Known-issue routing flow (monitor/runbook/hotfix/release/defer)",
+          "status": "done"
+        },
+        {
+          "id": "p13_t4",
+          "title": "Feedback-to-release backlog package export flow",
+          "status": "done"
+        },
+        {
+          "id": "p13_t5",
+          "title": "Phase evidence closure with docs/tests/governance synchronization",
+          "status": "done"
+        }
+      ],
+      "completion_criteria": [
+        "Post-launch issue triage outputs deterministic backlog categories from support evidence and recurring hardening inputs.",
+        "Priority scoring and known-issue routing produce explicit release/hotfix/runbook/monitoring decisions.",
+        "Feedback-to-release backlog package artifacts are generated and referenced in runbooks/README.",
+        "At least one phase_13 evidence package is recorded in staging execution evidence with tests and lint green."
+      ]
+    },
+    {
+      "id": "phase_14",
+      "name": "release-train automation and GA-readiness",
+      "status": "done",
+      "goals": [
+        "Promote post-launch backlog exports into deterministic release candidate manifests.",
+        "Produce auditable GO/HOLD/ROLLBACK decision packages from candidate, readiness, and known-issue impact.",
+        "Assemble release notes and known-issue publication routing for operator/customer communication.",
+        "Export release-train evidence bundles for staging and launch governance traceability."
+      ],
+      "non_goals": [
+        "No strict completed-only policy relaxation",
+        "No provider family expansion",
+        "No broad orchestrator architecture redesign",
+        "No OpenClaw upstream contract re-architecture inside this repository"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p14_t1",
+          "title": "release-candidate promotion baseline",
+          "status": "done"
+        },
+        {
+          "id": "p14_t2",
+          "title": "go-hold-rollback decision package",
+          "status": "done"
+        },
+        {
+          "id": "p14_t3",
+          "title": "release-notes and known-issue publication assembly",
+          "status": "done"
+        },
+        {
+          "id": "p14_t4",
+          "title": "release-train evidence export flow",
+          "status": "done"
+        },
+        {
+          "id": "p14_t5",
+          "title": "phase evidence closure and governance sync",
+          "status": "done"
+        }
+      ],
+      "completion_criteria": [
+        "Release candidate manifests are generated deterministically from phase_13 backlog exports.",
+        "Decision packages emit GO/HOLD/ROLLBACK outcomes with explicit rationale and rollback signals.",
+        "Release notes and known-issue publication routing outputs are generated from candidate/decision inputs.",
+        "Release-train evidence package is exported and recorded in staging execution evidence."
+      ]
+    },
+    {
+      "id": "phase_15",
+      "name": "GA launch execution and early-operations stabilization",
+      "status": "done",
+      "goals": [
+        "Execute one GA launch package end-to-end from release-train artifacts.",
+        "Run go/hold/rollback operational decisioning with evidence continuity.",
+        "Stabilize early operations with deterministic support/escalation loops.",
+        "Route launch-week incidents into hotfix/next-release/monitoring lanes."
+      ],
+      "non_goals": [
+        "No strict completed-only policy relaxation",
+        "No provider family expansion",
+        "No broad orchestrator architecture redesign",
+        "No OpenClaw upstream contract re-architecture inside this repository"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p15_t1",
+          "title": "GA launch package execution baseline",
+          "status": "done"
+        },
+        {
+          "id": "p15_t2",
+          "title": "early-operations incident loop",
+          "status": "done"
+        },
+        {
+          "id": "p15_t3",
+          "title": "hotfix and next-release routing stabilization",
+          "status": "done"
+        },
+        {
+          "id": "p15_t4",
+          "title": "phase evidence closure and governance sync",
+          "status": "done"
+        }
+      ],
+      "completion_criteria": [
+        "GA launch package manifest and summary are generated from release-train artifacts.",
+        "Go/hold/rollback decision evidence is retained with release notes and publication routing.",
+        "Early-operations incident loop is executed and routed into deterministic backlog lanes.",
+        "Phase closure evidence is recorded in staging execution record with docs/tests synchronized."
+      ]
+    },
+    {
+      "id": "phase_16",
+      "name": "ga adoption reliability and self-serve stabilization",
+      "status": "done",
+      "goals": [
+        "Stabilize first GA adoption loops with deterministic weekly operational reviews.",
+        "Reduce recurring launch-support incidents through bounded runbook hardening updates.",
+        "Preserve strict auth/policy/release invariants while improving operator self-serve success rates."
+      ],
+      "non_goals": [
+        "No strict completed-only policy relaxation",
+        "No provider family expansion",
+        "No SaaS control-plane implementation",
+        "No broad orchestrator architecture rewrite"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p16_t1",
+          "title": "ga-weekly reliability review baseline and recurring support trend closure loop",
+          "status": "done"
+        },
+        {
+          "id": "p16_t2",
+          "title": "weekly runbook-delta governance package and closeout evidence continuity",
+          "status": "done"
+        }
+      ],
+      "completion_criteria": [
+        "Weekly GA reliability review artifacts are generated from support and release evidence.",
+        "Top recurring support patterns are converted into deterministic runbook delta candidates.",
+        "At least one phase_16 evidence package is recorded in staging execution evidence."
+      ]
+    },
+    {
+      "id": "phase_17",
+      "name": "ga steady-state scaling and customer-success governance",
+      "status": "done",
+      "goals": [
+        "Convert weekly GA reliability outputs into deterministic monthly adoption/reliability targets.",
+        "Stabilize customer-success operations with bounded recurring hardening closure SLAs.",
+        "Preserve strict auth/policy/release invariants while improving self-serve success outcomes."
+      ],
+      "non_goals": [
+        "No strict completed-only policy relaxation",
+        "No provider family expansion",
+        "No SaaS control-plane implementation",
+        "No broad orchestrator architecture rewrite"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p17_t1",
+          "title": "monthly GA reliability target baseline and customer-success KPI governance package",
+          "status": "done"
+        },
+        {
+          "id": "p17_t2",
+          "title": "monthly closure-SLA breach routing and runbook-delta ownership loop",
+          "status": "done"
+        }
+      ],
+      "completion_criteria": [
+        "Monthly GA reliability target package is generated deterministically from weekly reliability review evidence.",
+        "Recurring hardening closure SLA tracking is published with explicit owner/status fields.",
+        "At least one phase_17 evidence package is recorded in staging execution evidence."
+      ]
+    },
+    {
+      "id": "phase_18",
+      "name": "quarterly GA governance and scale planning",
+      "status": "done",
+      "goals": [
+        "Convert monthly reliability and closure-SLA routing outputs into a deterministic quarterly governance package.",
+        "Stabilize customer-success ownership commitments through bounded quarterly planning loops.",
+        "Preserve strict auth/policy/release invariants while scaling post-GA operations."
+      ],
+      "non_goals": [
+        "No strict completed-only policy relaxation",
+        "No provider family expansion",
+        "No SaaS control-plane implementation",
+        "No broad orchestrator architecture rewrite"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p18_t1",
+          "title": "quarterly reliability aggregation baseline",
+          "status": "done"
+        },
+        {
+          "id": "p18_t2",
+          "title": "quarterly closure-SLA breach ownership and routing",
+          "status": "done"
+        },
+        {
+          "id": "p18_t3",
+          "title": "quarterly review package and evidence export",
+          "status": "done"
+        },
+        {
+          "id": "p18_t4",
+          "title": "docs/tests/evidence closure",
+          "status": "done"
+        }
+      ],
+      "completion_criteria": [
+        "Quarterly GA governance package is generated deterministically from monthly reliability target and closure-SLA routing evidence.",
+        "Quarterly customer-success owner commitments are published with explicit status and carry-over handling.",
+        "At least one phase_18 evidence package is recorded in staging execution evidence."
+      ]
+    },
+    {
+      "id": "phase_19",
+      "name": "upgrade and migration safety operations",
+      "status": "done",
+      "goals": [
+        "Standardize customer-safe upgrade impact analysis from quarterly governance evidence.",
+        "Package deterministic migration rehearsal flow with sqlite backup/verify/export contracts.",
+        "Preserve rollback/data protection controls as first-class upgrade safety evidence."
+      ],
+      "non_goals": [
+        "No strict completed-only policy relaxation",
+        "No provider family expansion",
+        "No SaaS control-plane implementation",
+        "No broad orchestrator architecture rewrite"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p19_t1",
+          "title": "upgrade impact matrix baseline",
+          "status": "done"
+        },
+        {
+          "id": "p19_t2",
+          "title": "migration rehearsal package",
+          "status": "done"
+        },
+        {
+          "id": "p19_t3",
+          "title": "customer-safe rollback and data protection flow",
+          "status": "done"
+        },
+        {
+          "id": "p19_t4",
+          "title": "upgrade evidence closure",
+          "status": "done"
+        }
+      ],
+      "completion_criteria": [
+        "Upgrade impact matrix is generated from quarterly review evidence with deterministic lanes.",
+        "Migration rehearsal package emits required backup/verify/export/restore checkpoints.",
+        "Rollback safety package is generated with explicit control list and decision rationale.",
+        "At least one phase_19 closeout evidence package is recorded in staging execution evidence."
+      ]
+    },
+    {
+      "id": "phase_20",
+      "name": "environment compatibility and support-at-scale baseline",
+      "status": "done",
+      "goals": [
+        "Define supported vs unsupported environment matrix for self-serve operations.",
+        "Generate deterministic compatibility preflight and report package.",
+        "Normalize support intake classification for larger customer operation volume."
+      ],
+      "non_goals": [
+        "No strict completed-only policy relaxation",
+        "No provider family expansion",
+        "No SaaS control-plane implementation",
+        "No broad orchestrator architecture rewrite"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p20_t1",
+          "title": "supported environment matrix baseline",
+          "status": "done"
+        },
+        {
+          "id": "p20_t2",
+          "title": "compatibility preflight and report package",
+          "status": "done"
+        },
+        {
+          "id": "p20_t3",
+          "title": "support intake normalization at scale",
+          "status": "done"
+        },
+        {
+          "id": "p20_t4",
+          "title": "environment and support evidence closure",
+          "status": "done"
+        }
+      ],
+      "completion_criteria": [
+        "Supported/unsupported environment matrix is documented and script-referenced.",
+        "Compatibility preflight report package is generated deterministically.",
+        "Support intake normalization package is available for scale operations.",
+        "At least one phase_20 evidence package is recorded in staging execution evidence."
+      ]
+    },
+    {
+      "id": "phase_21",
+      "name": "auditability, retention, and compliance-lite governance",
+      "status": "done",
+      "goals": [
+        "Define retention/export coverage for support, release, and operations artifacts.",
+        "Establish deterministic audit traceability index and incident/change ledger package."
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p21_t1",
+          "title": "artifact retention and export coverage baseline",
+          "status": "done"
+        },
+        {
+          "id": "p21_t2",
+          "title": "audit traceability index",
+          "status": "done"
+        },
+        {
+          "id": "p21_t3",
+          "title": "incident/change ledger package",
+          "status": "done"
+        },
+        {
+          "id": "p21_t4",
+          "title": "evidence closure and docs sync",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "phase_22",
+      "name": "steady-state commercial operations closure",
+      "status": "done",
+      "goals": [
+        "Publish steady-state operations handbook across weekly/monthly/quarterly/release cadence.",
+        "Generate end-to-end representative commercial operations evidence package."
+      ],
+      "candidate_tasks": [
+        {
+          "id": "p22_t1",
+          "title": "steady-state operations handbook",
+          "status": "done"
+        },
+        {
+          "id": "p22_t2",
+          "title": "release and operations cadence baseline",
+          "status": "done"
+        },
+        {
+          "id": "p22_t3",
+          "title": "end-to-end representative operations evidence",
+          "status": "done"
+        },
+        {
+          "id": "p22_t4",
+          "title": "roadmap closeout and steady-state activation",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "steady_state",
+      "name": "steady-state commercial operations mode",
+      "status": "done",
+      "goals": [
+        "Operate the commercial workflow in steady-state cadence with evidence-first governance.",
+        "Keep weekly/monthly/quarterly/release operations synchronized through handbook and runbooks.",
+        "Preserve strict auth/policy invariants while applying bounded incremental improvements."
+      ],
+      "non_goals": [
+        "No strict completed-only policy relaxation",
+        "No provider family expansion without explicit review",
+        "No broad orchestrator architecture rewrite"
+      ],
+      "candidate_tasks": [
+        {
+          "id": "ss_t1",
+          "title": "bounded steady-state operational improvements from evidence backlog",
+          "status": "done"
+        },
+        {
+          "id": "ss_t2",
+          "title": "steady-state watch backlog burn-down and closure tracking package",
+          "status": "done"
+        },
+        {
+          "id": "ss_t3",
+          "title": "steady-state cadence checkpoint evidence refresh package",
+          "status": "done"
+        },
+        {
+          "id": "ss_t4",
+          "title": "steady-state escalation watchlist ownership routing package",
+          "status": "done"
+        }
       ]
     }
   ]

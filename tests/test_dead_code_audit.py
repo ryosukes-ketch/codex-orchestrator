@@ -84,5 +84,5 @@ def test_env_example_keeps_provider_keys_in_sync_with_supported_adapters() -> No
     }
     provider_keys = {key for key in env_keys if key.endswith("_API_KEY")}
 
-    expected = {"OPENAI_API_KEY", "GEMINI_API_KEY", "GROK_API_KEY"}
+    expected = {"OPENAI_API_KEY", "GEMINI_API_KEY", "GROK_API_KEY", "ANTHROPIC_API_KEY"}
     assert provider_keys == expected

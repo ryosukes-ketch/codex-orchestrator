@@ -25,10 +25,26 @@ class _RaisingOrchestrator:
         self.method_name = method_name
         self.exc = exc
 
-    def record_authentication_success(self, project_id: str, actor) -> None:  # noqa: ANN001
+    def record_authentication_success(
+        self,
+        project_id: str,
+        actor: ActorContext,
+        *,
+        auth_source: str = "token",
+        auth_mode: str = "bearer",
+    ) -> None:
+        _ = project_id, actor, auth_source, auth_mode
         return None
 
-    def record_authentication_failure(self, project_id: str, reason: str) -> None:
+    def record_authentication_failure(
+        self,
+        project_id: str,
+        reason: str,
+        *,
+        auth_source: str = "token",
+        auth_mode: str = "bearer",
+    ) -> None:
+        _ = project_id, reason, auth_source, auth_mode
         return None
 
     def resume_from_approval(self, *args, **kwargs):  # noqa: ANN002, ANN003
@@ -65,13 +81,31 @@ class _RaisingOrchestrator:
 class _RecordingAuthFailureOrchestrator:
     def __init__(self) -> None:
         self.failure_reasons: list[str] = []
+        self.failure_auth_contexts: list[tuple[str, str]] = []
         self.called_method: str | None = None
 
-    def record_authentication_success(self, project_id: str, actor) -> None:  # noqa: ANN001
+    def record_authentication_success(
+        self,
+        project_id: str,
+        actor: ActorContext,
+        *,
+        auth_source: str = "token",
+        auth_mode: str = "bearer",
+    ) -> None:
+        _ = project_id, actor, auth_source, auth_mode
         return None
 
-    def record_authentication_failure(self, project_id: str, reason: str) -> None:
+    def record_authentication_failure(
+        self,
+        project_id: str,
+        reason: str,
+        *,
+        auth_source: str = "token",
+        auth_mode: str = "bearer",
+    ) -> None:
+        _ = project_id
         self.failure_reasons.append(reason)
+        self.failure_auth_contexts.append((auth_source, auth_mode))
 
     def resume_from_approval(self, *args, **kwargs):  # noqa: ANN002, ANN003
         self.called_method = "resume_from_approval"
@@ -236,4 +270,5 @@ def test_protected_route_returns_401_on_authentication_failure_before_action(
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid bearer token."
     assert orchestrator.failure_reasons == ["Invalid bearer token."]
+    assert orchestrator.failure_auth_contexts == [("token", "bearer")]
     assert orchestrator.called_method is None

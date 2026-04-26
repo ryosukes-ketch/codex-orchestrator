@@ -147,7 +147,10 @@ Policy precedence:
 - `TrendAgent`
 
 MVP behavior:
-- deterministic placeholder implementations returning structured artifacts
+- deterministic fallback implementations returning structured artifacts
+- optional LLM-backed internal pipelines:
+  - Build: `Architect -> Coder -> Tester`
+  - Review: `InitialReview -> CounterCheck -> FinalJudgment`
 - interfaces separated so future LLM workers can be swapped in without schema changes
 
 ### 4) Provider Layer (`app/providers`)

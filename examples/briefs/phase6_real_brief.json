@@ -1,0 +1,31 @@
+{
+  "title": "Phase 6 real-brief operational baseline",
+  "objective": "Produce a repeatable live-run evidence package inside orchestrator artifacts for one low-risk operator workflow run, including explicit approval-path and stage-telemetry traces plus post-run script mapping metadata.",
+  "scope": "In-run artifact package quality only (research/design/build/review/live_run_evidence). No standalone documentation file generation is required inside this brief.",
+  "constraints": [
+    "Windows PowerShell local operation only",
+    "No auth, approval, policy, schema, or dependency changes",
+    "Keep readiness/operator manifest and audit semantics backward compatible",
+    "Prefer documentation and operator guidance improvements over runtime redesign"
+  ],
+  "success_criteria": [
+    "Approval path evidence is captured in-run (approval_requested and approval_approved are visible in live_run_evidence or audit-linked event snapshots)",
+    "department_stage_executed evidence and stage telemetry are present as explicit live-run inputs in the artifact package (stage_totals, stage_summary, and department_stage_executed_events)",
+    "post_run_artifact_map is present and references existing operator scripts for status, audit, handoff, stage-gate, and manifest outputs",
+    "The package remains within current safety constraints and does not require auth, approval, policy, schema, dependency, or runtime redesign changes",
+    "Review acceptance is based on artifact-level evidence consistency; no additional out-of-band docs deliverables are required for this brief"
+  ],
+  "deadline": null,
+  "stakeholders": [
+    "local operator",
+    "maintainer"
+  ],
+  "assumptions": [
+    "OpenClaw gateway transport is already available for department LLM routes",
+    "SQLite local operation remains the persistence baseline",
+    "Trend provider approval gating continues to use a supported provider value",
+    "Existing operator scripts remain the authoritative way to emit bundle-manifest, handoff, stage-gate, and audit export files after a run",
+    "This brief validates in-run artifact readiness only; operators generate post-run files using existing scripts after completion"
+  ],
+  "raw_request": "Run one real, low-risk operator brief through the approval path and produce an internally coherent artifact package. The package must explicitly show approval-path evidence, department stage telemetry, and a post-run operator script map. Keep all work inside current safety boundaries and treat post-run files as outputs of existing scripts, not as mandatory embedded deliverables of this brief."
+}
