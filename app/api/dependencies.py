@@ -3,15 +3,15 @@ from functools import lru_cache
 from fastapi import Request
 
 from app.api.runtime_bindings import resolve_auth_service_binding
-from app.services.auth import DevTokenAuthService, get_auth_service
+from app.services.auth import AuthService, get_auth_service
 
 
 @lru_cache(maxsize=1)
-def _get_cached_auth_service_dependency() -> DevTokenAuthService:
+def _get_cached_auth_service_dependency() -> AuthService:
     return get_auth_service()
 
 
-def get_auth_service_dependency(request: Request) -> DevTokenAuthService:
+def get_auth_service_dependency(request: Request) -> AuthService:
     return resolve_auth_service_binding(
         request,
         fallback_resolver=_get_cached_auth_service_dependency,

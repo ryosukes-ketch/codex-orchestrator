@@ -8,9 +8,11 @@ from app.services.auth import get_auth_service
 
 
 def create_app() -> FastAPI:
+    from app.llm.registry import DepartmentRegistry
+
     clear_auth_service_dependency_caches()
     app = FastAPI(title="AI Work System Scaffold", version="0.1.0")
-    runtime_orchestrator = PMOrchestrator()
+    runtime_orchestrator = PMOrchestrator(department_registry=DepartmentRegistry.from_env())
     auth_service = get_auth_service()
     bind_orchestrator_binding(app, orchestrator=runtime_orchestrator)
     bind_auth_service_binding(app, auth_service=auth_service)

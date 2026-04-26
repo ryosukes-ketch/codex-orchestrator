@@ -162,12 +162,15 @@ def _direct_outcome_with_authenticated_actor(
     *,
     project_id: str,
     token: str | None,
+    authorization_header: str | None = None,
     action,
 ) -> tuple[int, str]:
     request = _request_for_client(client)
     runtime_orchestrator = routes._get_orchestrator(request)
     auth_service = dependencies.get_auth_service_dependency(request)
-    authorization = f"Bearer {token}" if token is not None else None
+    authorization = authorization_header if authorization_header is not None else (
+        f"Bearer {token}" if token is not None else None
+    )
     try:
         result = routes._run_with_authenticated_actor(
             project_id=project_id,
@@ -412,11 +415,16 @@ def test_shared_repository_across_apps_keeps_auth_seed_isolated_and_records_auth
         assert success_resume.json()["summary"]["status"] == "completed"
 
         audit = client_two.get(f"/projects/{project_id}/audit").json()
-        assert any(
-            event["event_type"] == "authentication_failed"
-            and event["reason"] == "Invalid bearer token."
+        auth_failed_events = [
+            event
             for event in audit["events"]
-        )
+            if event["event_type"] == "authentication_failed"
+            and event["reason"] == "Invalid bearer token."
+        ]
+        assert auth_failed_events
+        latest_failed = auth_failed_events[-1]
+        assert latest_failed["metadata"]["auth_source"] == "token"
+        assert latest_failed["metadata"]["auth_mode"] == "bearer"
     finally:
         _clear_auth_caches()
 
@@ -893,6 +901,17 @@ def test_malformed_auth_env_keeps_secure_default_across_shared_repo_reload(monke
         )
         assert no_header.status_code == 401
         assert no_header.json()["detail"] == "Missing Authorization header."
+        audit_after_no_header = malformed_client.get(f"/projects/{project_id}/audit").json()
+        missing_header_events = [
+            event
+            for event in audit_after_no_header["events"]
+            if event["event_type"] == "authentication_failed"
+            and event["reason"] == "Missing Authorization header."
+        ]
+        assert missing_header_events
+        latest_missing_header = missing_header_events[-1]
+        assert latest_missing_header["metadata"]["auth_source"] == "none"
+        assert latest_missing_header["metadata"]["auth_mode"] == "none"
 
         default_seed_token = malformed_client.post(
             "/orchestrator/resume/approval",
@@ -901,6 +920,48 @@ def test_malformed_auth_env_keeps_secure_default_across_shared_repo_reload(monke
         )
         assert default_seed_token.status_code == 200
         assert default_seed_token.json()["summary"]["status"] == ProjectStatus.COMPLETED.value
+    finally:
+        _clear_auth_caches()
+
+
+def test_basic_auth_header_records_header_basic_auth_context(monkeypatch) -> None:
+    shared_repository = InMemoryProjectRepository()
+    try:
+        _clear_auth_caches()
+        client = _client_with_shared_repository_and_seed(
+            monkeypatch,
+            shared_repository,
+            "seed-one:approver-one:approver:human",
+            dev_auth_enabled="true",
+        )
+        project_id = _run_waiting_approval_project(client)
+
+        status_code, detail = _direct_outcome_with_authenticated_actor(
+            client,
+            project_id=project_id,
+            token=None,
+            authorization_header="Basic abc123",
+            action=lambda runtime_orchestrator, actor: runtime_orchestrator.resume_from_approval(
+                project_id=project_id,
+                approved_actions=["external_api_send"],
+                actor=actor,
+                trend_provider_name="gemini",
+            ),
+        )
+        assert status_code == 401
+        assert detail == "Authorization must be Bearer token."
+
+        audit = client.get(f"/projects/{project_id}/audit").json()
+        failed_events = [
+            event
+            for event in audit["events"]
+            if event["event_type"] == "authentication_failed"
+            and event["reason"] == "Authorization must be Bearer token."
+        ]
+        assert failed_events
+        latest_failed = failed_events[-1]
+        assert latest_failed["metadata"]["auth_source"] == "header"
+        assert latest_failed["metadata"]["auth_mode"] == "basic"
     finally:
         _clear_auth_caches()
 
