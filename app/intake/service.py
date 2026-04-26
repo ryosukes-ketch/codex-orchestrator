@@ -1,5 +1,9 @@
+import json
+import os
 import re
 
+from app.llm.base import LLMClient
+from app.llm.factory import get_llm_client
 from app.schemas.brief import IntakeResult, ProjectBrief
 
 FIELD_QUESTIONS = {
@@ -26,6 +30,27 @@ LIST_FIELD_HEADERS = {
 
 
 class IntakeAgent:
+    def __init__(
+        self,
+        *,
+        llm_client: LLMClient | None = None,
+        use_llm: bool | None = None,
+    ) -> None:
+        if use_llm is None:
+            use_llm = os.getenv("INTAKE_USE_LLM", "").strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+        self._use_llm = use_llm
+        if llm_client is not None:
+            self._llm_client = llm_client
+        elif self._use_llm:
+            self._llm_client = self._build_llm_client_from_env()
+        else:
+            self._llm_client = None
+
     @staticmethod
     def _unique_preserve_order(values: list[str]) -> list[str]:
         seen: set[str] = set()
@@ -97,6 +122,78 @@ class IntakeAgent:
             .replace("\r\n", "\n")
             .strip()
         )
+
+    @staticmethod
+    def _parse_model_spec(raw_model: str) -> tuple[str, str]:
+        candidate = raw_model.strip()
+        if not candidate or candidate.lower() == "mock":
+            return ("mock", "")
+        if "/" not in candidate:
+            return ("mock", "")
+        provider, model = candidate.split("/", 1)
+        return (provider.strip().lower(), model.strip())
+
+    def _build_llm_client_from_env(self) -> LLMClient:
+        provider, model = self._parse_model_spec(
+            os.getenv("INTAKE_MODEL", os.getenv("RESEARCH_MODEL", "mock"))
+        )
+        return get_llm_client(provider, model)
+
+    @staticmethod
+    def _coerce_text(value: object) -> str | None:
+        if not isinstance(value, str):
+            return None
+        cleaned = value.strip()
+        return cleaned or None
+
+    def _coerce_list(self, value: object) -> list[str]:
+        if isinstance(value, list):
+            coerced = [str(item).strip() for item in value if str(item).strip()]
+            return self._unique_preserve_order(coerced)
+        if isinstance(value, str):
+            return self._split_list_values(value)
+        return []
+
+    @staticmethod
+    def _extract_first_json_object(text: str) -> str:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start < 0 or end <= start:
+            return ""
+        return text[start : end + 1]
+
+    def _extract_fields_via_llm(self, normalized_request: str) -> dict[str, object]:
+        if not self._use_llm or self._llm_client is None:
+            return {}
+
+        system_prompt = (
+            "Extract project brief fields from user text and return strict JSON only. "
+            "Output keys: title (string or empty), scope (string or empty), "
+            "constraints (array of strings), success_criteria (array of strings), "
+            "deadline (string or empty), stakeholders (array of strings)."
+        )
+        user_prompt = (
+            "Return JSON only.\n"
+            "If a field is absent, use empty string for scalar fields and [] for list fields.\n"
+            "User request:\n"
+            f"{normalized_request}"
+        )
+        try:
+            raw = self._llm_client.complete(system_prompt, user_prompt)
+        except Exception:
+            return {}
+
+        candidate = self._extract_first_json_object(raw.strip())
+        if not candidate:
+            return {}
+        try:
+            parsed = json.loads(candidate)
+        except (json.JSONDecodeError, ValueError):
+            return {}
+        if not isinstance(parsed, dict):
+            return {}
+        return parsed
+
     def build_brief(self, user_request: str) -> IntakeResult:
         normalized_request = self._normalize_user_request(user_request)
 
@@ -106,6 +203,20 @@ class IntakeAgent:
         success_criteria = self._extract_list_field(normalized_request, "success_criteria")
         deadline = self._extract_value(normalized_request, "deadline")
         stakeholders = self._extract_list_field(normalized_request, "stakeholders")
+
+        llm_fields = self._extract_fields_via_llm(normalized_request)
+        if not title:
+            title = self._coerce_text(llm_fields.get("title"))
+        if not scope:
+            scope = self._coerce_text(llm_fields.get("scope"))
+        if not constraints:
+            constraints = self._coerce_list(llm_fields.get("constraints"))
+        if not success_criteria:
+            success_criteria = self._coerce_list(llm_fields.get("success_criteria"))
+        if not deadline:
+            deadline = self._coerce_text(llm_fields.get("deadline"))
+        if not stakeholders:
+            stakeholders = self._coerce_list(llm_fields.get("stakeholders"))
 
         brief = ProjectBrief(
             title=title,
@@ -138,4 +249,3 @@ class IntakeAgent:
             missing_fields=missing_fields,
             clarifying_questions=clarifying_questions,
         )
-

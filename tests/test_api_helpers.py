@@ -399,14 +399,28 @@ def test_resolve_authenticated_actor_records_success(monkeypatch) -> None:
 
     class _Orchestrator:
         def __init__(self) -> None:
-            self.success_calls: list[tuple[str, str]] = []
-            self.failure_calls: list[tuple[str, str]] = []
+            self.success_calls: list[tuple[str, str, str, str]] = []
+            self.failure_calls: list[tuple[str, str, str, str]] = []
 
-        def record_authentication_success(self, project_id: str, actor: ActorContext) -> None:
-            self.success_calls.append((project_id, actor.actor_id))
+        def record_authentication_success(
+            self,
+            project_id: str,
+            actor: ActorContext,
+            *,
+            auth_source: str = "token",
+            auth_mode: str = "bearer",
+        ) -> None:
+            self.success_calls.append((project_id, actor.actor_id, auth_source, auth_mode))
 
-        def record_authentication_failure(self, project_id: str, reason: str) -> None:
-            self.failure_calls.append((project_id, reason))
+        def record_authentication_failure(
+            self,
+            project_id: str,
+            reason: str,
+            *,
+            auth_source: str = "token",
+            auth_mode: str = "bearer",
+        ) -> None:
+            self.failure_calls.append((project_id, reason, auth_source, auth_mode))
 
     orchestrator = _Orchestrator()
     monkeypatch.setattr(routes, "orchestrator", orchestrator)
@@ -418,7 +432,7 @@ def test_resolve_authenticated_actor_records_success(monkeypatch) -> None:
     )
 
     assert resolved == actor
-    assert orchestrator.success_calls == [("proj-1", "approver-1")]
+    assert orchestrator.success_calls == [("proj-1", "approver-1", "token", "bearer")]
     assert orchestrator.failure_calls == []
 
 
@@ -429,13 +443,27 @@ def test_resolve_authenticated_actor_records_failure_and_raises_http_401(monkeyp
 
     class _Orchestrator:
         def __init__(self) -> None:
-            self.failure_calls: list[tuple[str, str]] = []
+            self.failure_calls: list[tuple[str, str, str, str]] = []
 
-        def record_authentication_success(self, project_id: str, actor: ActorContext) -> None:
+        def record_authentication_success(
+            self,
+            project_id: str,
+            actor: ActorContext,
+            *,
+            auth_source: str = "token",
+            auth_mode: str = "bearer",
+        ) -> None:
             raise AssertionError("should not be called")
 
-        def record_authentication_failure(self, project_id: str, reason: str) -> None:
-            self.failure_calls.append((project_id, reason))
+        def record_authentication_failure(
+            self,
+            project_id: str,
+            reason: str,
+            *,
+            auth_source: str = "token",
+            auth_mode: str = "bearer",
+        ) -> None:
+            self.failure_calls.append((project_id, reason, auth_source, auth_mode))
 
     orchestrator = _Orchestrator()
     monkeypatch.setattr(routes, "orchestrator", orchestrator)
@@ -451,7 +479,7 @@ def test_resolve_authenticated_actor_records_failure_and_raises_http_401(monkeyp
         assert exc.status_code == 401
         assert exc.detail == "Invalid bearer token."
 
-    assert orchestrator.failure_calls == [("proj-2", "Invalid bearer token.")]
+    assert orchestrator.failure_calls == [("proj-2", "Invalid bearer token.", "token", "bearer")]
 
 
 def test_run_with_authenticated_actor_returns_action_result(monkeypatch) -> None:
@@ -467,10 +495,24 @@ def test_run_with_authenticated_actor_returns_action_result(monkeypatch) -> None
             return actor
 
     class _Orchestrator:
-        def record_authentication_success(self, project_id: str, actor: ActorContext) -> None:
+        def record_authentication_success(
+            self,
+            project_id: str,
+            actor: ActorContext,
+            *,
+            auth_source: str = "token",
+            auth_mode: str = "bearer",
+        ) -> None:
             return None
 
-        def record_authentication_failure(self, project_id: str, reason: str) -> None:
+        def record_authentication_failure(
+            self,
+            project_id: str,
+            reason: str,
+            *,
+            auth_source: str = "token",
+            auth_mode: str = "bearer",
+        ) -> None:
             raise AssertionError("should not be called")
 
     monkeypatch.setattr(routes, "orchestrator", _Orchestrator())
@@ -496,10 +538,24 @@ def test_run_with_authenticated_actor_maps_lookup_error_to_http_404(monkeypatch)
             return actor
 
     class _Orchestrator:
-        def record_authentication_success(self, project_id: str, actor: ActorContext) -> None:
+        def record_authentication_success(
+            self,
+            project_id: str,
+            actor: ActorContext,
+            *,
+            auth_source: str = "token",
+            auth_mode: str = "bearer",
+        ) -> None:
             return None
 
-        def record_authentication_failure(self, project_id: str, reason: str) -> None:
+        def record_authentication_failure(
+            self,
+            project_id: str,
+            reason: str,
+            *,
+            auth_source: str = "token",
+            auth_mode: str = "bearer",
+        ) -> None:
             raise AssertionError("should not be called")
 
     monkeypatch.setattr(routes, "orchestrator", _Orchestrator())
@@ -525,10 +581,24 @@ def test_run_with_authenticated_actor_preserves_http_401_from_auth_resolution(
             raise AuthenticationError("Invalid bearer token.")
 
     class _Orchestrator:
-        def record_authentication_success(self, project_id: str, actor: ActorContext) -> None:
+        def record_authentication_success(
+            self,
+            project_id: str,
+            actor: ActorContext,
+            *,
+            auth_source: str = "token",
+            auth_mode: str = "bearer",
+        ) -> None:
             raise AssertionError("should not be called")
 
-        def record_authentication_failure(self, project_id: str, reason: str) -> None:
+        def record_authentication_failure(
+            self,
+            project_id: str,
+            reason: str,
+            *,
+            auth_source: str = "token",
+            auth_mode: str = "bearer",
+        ) -> None:
             return None
 
     monkeypatch.setattr(routes, "orchestrator", _Orchestrator())
@@ -553,3 +623,9 @@ def test_raise_route_http_error_maps_authentication_error_to_http_401() -> None:
     except HTTPException as exc:
         assert exc.status_code == 401
         assert exc.detail == "token invalid"
+
+
+def test_derive_auth_context() -> None:
+    assert routes._derive_auth_context("Bearer token") == ("token", "bearer")
+    assert routes._derive_auth_context("Basic abc") == ("header", "basic")
+    assert routes._derive_auth_context(None) == ("none", "none")

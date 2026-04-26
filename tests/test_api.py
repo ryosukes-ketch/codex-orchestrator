@@ -92,6 +92,53 @@ def test_orchestrator_endpoint() -> None:
     assert payload["summary"]["status"] == "completed"
 
 
+def test_audit_endpoint_includes_internal_stage_events_for_completed_project() -> None:
+    run = client.post(
+        "/orchestrator/run",
+        json={"brief": _intake_brief(), "trend_provider": "mock"},
+    )
+    assert run.status_code == 200
+    project_id = run.json()["record"]["project"]["id"]
+
+    audit = client.get(f"/projects/{project_id}/audit")
+    assert audit.status_code == 200
+    payload = audit.json()
+    stage_events = [
+        event for event in payload["events"] if event["event_type"] == "department_stage_executed"
+    ]
+    assert stage_events
+    assert any(event["metadata"].get("stage_name") == "ScopeFraming" for event in stage_events)
+    assert any(event["metadata"].get("stage_name") == "DecisionFinalizer" for event in stage_events)
+    assert any(event["metadata"].get("stage_name") == "Architect" for event in stage_events)
+    assert any(event["metadata"].get("stage_name") == "FinalJudgment" for event in stage_events)
+    assert all(
+        "stage_failure_reason" in event["metadata"]
+        or event["metadata"].get("stage_success") is True
+        for event in stage_events
+    )
+    stage_summary = payload["department_stage_summary"]
+    assert stage_summary
+    stage_totals = payload["department_stage_totals"]
+    assert stage_totals["total_stage_executions"] >= 1
+    assert (
+        stage_totals["total_successes"] + stage_totals["total_failures"]
+        == stage_totals["total_stage_executions"]
+    )
+    assert "total_llm_transport_fallbacks" in stage_totals
+    assert "llm_endpoints_observed" in stage_totals
+    assert any(
+        item["department"] == "build" and item["stage_name"] == "Architect"
+        for item in stage_summary
+    )
+    architect = next(
+        item
+        for item in stage_summary
+        if item["department"] == "build" and item["stage_name"] == "Architect"
+    )
+    assert architect["execution_count"] >= 1
+    assert architect["success_count"] + architect["failure_count"] == architect["execution_count"]
+
+
 def test_orchestrator_endpoint_waits_for_approval_with_gemini_alias_provider() -> None:
     run = client.post(
         "/orchestrator/run",
@@ -850,13 +897,14 @@ def test_resume_revision_then_start_replanning() -> None:
     )
     assert start.status_code == 200
     assert start.json()["summary"]["status"] == "completed"
-    assert start.json()["summary"]["artifact_count"] == 4
+    assert start.json()["summary"]["artifact_count"] == 5
     artifact_ids = [artifact["id"] for artifact in start.json()["record"]["artifacts"]]
     assert len(artifact_ids) == len(set(artifact_ids))
     assert sorted(artifact["task_id"] for artifact in start.json()["record"]["artifacts"]) == [
         "task-build",
         "task-design",
         "task-research",
+        "task-review",
         "task-trend",
     ]
 
@@ -1307,6 +1355,34 @@ def test_body_actor_tampering_is_ignored() -> None:
         event["event_type"] == "actor_resolved" and event["actor"] == "approver-1"
         for event in audit.json()["events"]
     )
+
+
+def test_protected_endpoint_auth_events_include_source_and_mode_metadata() -> None:
+    waiting = client.post(
+        "/orchestrator/run",
+        json={"brief": _intake_brief(), "trend_provider": "gemini"},
+    )
+    project_id = waiting.json()["record"]["project"]["id"]
+
+    resumed = client.post(
+        "/orchestrator/resume/approval",
+        json={
+            "project_id": project_id,
+            "approved_actions": ["external_api_send"],
+            "trend_provider": "gemini",
+        },
+        headers=_auth("dev-approver-token"),
+    )
+    assert resumed.status_code == 200
+    audit = client.get(f"/projects/{project_id}/audit")
+    events = audit.json()["events"]
+    auth_event = next(event for event in events if event["event_type"] == "authentication_succeeded")
+    actor_event = next(event for event in events if event["event_type"] == "actor_resolved")
+
+    assert auth_event["metadata"]["auth_source"] == "token"
+    assert auth_event["metadata"]["auth_mode"] == "bearer"
+    assert actor_event["metadata"]["auth_source"] == "token"
+    assert actor_event["metadata"]["auth_mode"] == "bearer"
 
 
 def test_reject_approval_body_actor_tampering_is_ignored() -> None:

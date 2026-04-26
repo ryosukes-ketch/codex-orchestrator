@@ -7,7 +7,7 @@ def intake_result_to_current_brief_artifact(
     *,
     brief_id: str,
     project_id: str,
-    active_phase: str = "phase_4",
+    active_phase: str = "phase_7",
     current_task: str | None = None,
     requested_scope: list[str] | None = None,
     out_of_scope: list[str] | None = None,
