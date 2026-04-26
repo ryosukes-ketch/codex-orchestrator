@@ -825,6 +825,19 @@ Run the full steady-state operational loop from one entrypoint:
 .\scripts\steady-state-run.ps1 -Mode daily -WatchlistOwnerAckPath .\docs\steady_state_watchlist_owner_ack.json -Zip
 ```
 
+Daily run with OpenClaw gateway evidence capture (timeout bounded):
+
+```powershell
+.\scripts\steady-state-run.ps1 `
+  -Mode daily `
+  -WatchlistOwnerAckPath .\docs\steady_state_watchlist_owner_ack.json `
+  -RunOpenClawGatewayCheck `
+  -OpenClawAgentId codex-orchestrator `
+  -OpenClawTimeoutSec 30 `
+  -OpenClawProbeTimeoutSec 15 `
+  -Zip
+```
+
 Weekly heavier cycle:
 
 ```powershell

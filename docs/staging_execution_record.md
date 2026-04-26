@@ -2401,3 +2401,72 @@ Observed response excerpt:
 gateway check passed; upstream rejection detected
 ```
 
+
+## Steady-state runtime loop cycle (2026-04-26 +09:00)
+
+- cycle_id: `steady-state-run-20260426-153250`
+- mode: `daily`
+- paused: `false`
+- checkpoint_decision: `escalate`
+- watchlist_decision: `escalate`
+- open_watch_count: `1`
+- open_escalate_count: `1`
+- owner_assignment_pending_count: `0`
+- owner_ack_applied_count: `1`
+- consecutive_escalate_count: `0`
+- checkpoint_manifest: `D:\codex\logs\ga-steady-state\runs\20260426-153250\checkpoint\ga-steady-state-checkpoint-refresh.manifest.json`
+- watchlist_manifest: `D:\codex\logs\ga-steady-state\runs\20260426-153250\watchlist\ga-steady-state-escalation-watchlist-route.manifest.json`
+
+### Run artifacts
+- run_manifest: `D:\codex\logs\ga-steady-state\runs\20260426-153250\steady-state-run.manifest.json`
+- run_summary: `D:\codex\logs\ga-steady-state\runs\20260426-153250\steady-state-run.summary.json`
+
+## OpenClaw Gateway evidence (2026-04-26 15:33:29 +09:00)
+
+- Execution timestamp: 2026-04-26 15:33:29 +09:00
+- Command: Set-Location D:\\codex; .\\scripts\\openclaw-gateway-check.ps1
+- Base URL: http://127.0.0.1:18789/v1
+- Agent: openclaw/codex-orchestrator
+- Backend override: none
+- Gateway response success: yes
+- Endpoint used: chat/completions
+- HTTP status: 200
+- Fallback used: no
+- Semantic response mode: json_text
+- Semantic content kind: json_text
+- Auth source: config:C:\Users\Ryosuke\.openclaw\openclaw.json
+- Verified by: Codex steady-state run
+- Models probe control HTML detected: True
+- Models probe status/content-type: 200 / text/html; charset=utf-8
+- Agent model listed in /models: False
+- Models probe IDs: (none)
+- Hint: none
+
+Observed response excerpt:
+
+```text
+gateway check passed
+```
+
+
+## Steady-state runtime loop cycle (2026-04-26 +09:00)
+
+- cycle_id: `steady-state-run-20260426-153904`
+- mode: `daily`
+- paused: `false`
+- checkpoint_decision: `escalate`
+- watchlist_decision: `escalate`
+- open_watch_count: `1`
+- open_escalate_count: `1`
+- owner_assignment_pending_count: `0`
+- owner_ack_applied_count: `1`
+- consecutive_escalate_count: `0`
+- checkpoint_manifest: `D:\codex\logs\ga-steady-state\runs\20260426-153904\checkpoint\ga-steady-state-checkpoint-refresh.manifest.json`
+- watchlist_manifest: `D:\codex\logs\ga-steady-state\runs\20260426-153904\watchlist\ga-steady-state-escalation-watchlist-route.manifest.json`
+
+### Run artifacts
+- run_manifest: `D:\codex\logs\ga-steady-state\runs\20260426-153904\steady-state-run.manifest.json`
+- run_summary: `D:\codex\logs\ga-steady-state\runs\20260426-153904\steady-state-run.summary.json`
+- openclaw_check_status: `passed`
+- openclaw_evidence: `D:\codex\logs\ga-steady-state\runs\20260426-153904\openclaw\openclaw-gateway-check.json`
+- openclaw_models_probe_control_html: `true`

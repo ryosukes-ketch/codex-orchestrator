@@ -9,6 +9,14 @@ param(
     [string]$KnownIssuesPath = "docs/known_issues_register.md",
     [string]$StagingRecordPath = "docs/staging_execution_record.md",
     [string]$WatchlistOwnerAckPath = "docs/steady_state_watchlist_owner_ack.json",
+    [switch]$RunOpenClawGatewayCheck,
+    [string]$OpenClawEvidenceCaptureScriptPath = "scripts/openclaw-evidence-capture.ps1",
+    [string]$OpenClawGatewayBaseUrl = "",
+    [string]$OpenClawAgentId = "codex-orchestrator",
+    [string]$OpenClawBackendModel = "",
+    [string]$OpenClawAuthToken = "",
+    [int]$OpenClawTimeoutSec = 30,
+    [int]$OpenClawProbeTimeoutSec = 15,
     [int]$MaxConsecutiveEscalateCount = 3,
     [int]$MaxOwnerAssignmentPendingCount = 2,
     [switch]$Zip
@@ -54,6 +62,8 @@ function New-SteadyDefaultState {
         open_watch_count = 0
         open_escalate_count = 0
         last_owner_assignment_pending_count = 0
+        last_openclaw_status = "not_run"
+        last_openclaw_evidence_path = ""
         paused_reason = ""
         consecutive_external_blocker_count = 0
     }
@@ -228,6 +238,7 @@ $resolvedStatePath = Resolve-SteadyOptionalPath -PathValue $StatePath -BasePath 
 $resolvedKnownIssuesPath = Resolve-SteadyOptionalPath -PathValue $KnownIssuesPath -BasePath $repoRoot
 $resolvedStagingPath = Resolve-SteadyOptionalPath -PathValue $StagingRecordPath -BasePath $repoRoot
 $resolvedWatchlistOwnerAckPath = Resolve-SteadyOptionalPath -PathValue $WatchlistOwnerAckPath -BasePath $repoRoot
+$resolvedOpenClawEvidenceCaptureScriptPath = Resolve-SteadyOptionalPath -PathValue $OpenClawEvidenceCaptureScriptPath -BasePath $repoRoot
 
 if ([string]::IsNullOrWhiteSpace($resolvedStatePath)) {
     $resolvedStatePath = Join-Path $repoRoot "docs\steady_state_runtime_state.json"
@@ -240,6 +251,9 @@ if ([string]::IsNullOrWhiteSpace($resolvedStagingPath)) {
 }
 if ([string]::IsNullOrWhiteSpace($resolvedWatchlistOwnerAckPath)) {
     $resolvedWatchlistOwnerAckPath = Join-Path $repoRoot "docs\steady_state_watchlist_owner_ack.json"
+}
+if ([string]::IsNullOrWhiteSpace($resolvedOpenClawEvidenceCaptureScriptPath)) {
+    $resolvedOpenClawEvidenceCaptureScriptPath = Join-Path $repoRoot "scripts\openclaw-evidence-capture.ps1"
 }
 
 $resolvedOutputDir = ([string]$OutputDir).Trim()
@@ -288,6 +302,9 @@ foreach ($required in @("docs\direction_guard.json", "docs\roadmap.json", "scrip
         $preflightIssues.Add(("missing required artifact: {0}" -f $required)) | Out-Null
     }
 }
+if ($RunOpenClawGatewayCheck -and -not (Test-Path $resolvedOpenClawEvidenceCaptureScriptPath)) {
+    $preflightIssues.Add(("missing required artifact: {0}" -f $resolvedOpenClawEvidenceCaptureScriptPath)) | Out-Null
+}
 
 $direction = Read-OperatorJsonFile -Path (Join-Path $repoRoot "docs\direction_guard.json")
 $roadmap = Read-OperatorJsonFile -Path (Join-Path $repoRoot "docs\roadmap.json")
@@ -324,6 +341,9 @@ $checkpointManifestPath = ""
 $checkpointSummaryPath = ""
 $watchlistManifestPath = ""
 $watchlistSummaryPath = ""
+$openclawEvidencePath = ""
+$openclawCheckStatus = if ($RunOpenClawGatewayCheck) { "pending" } else { "skipped" }
+$openclawModelsProbeControlHtml = $false
 $improvementManifestPath = ""
 $improvementSummaryPath = ""
 $burndownManifestPath = ""
@@ -391,6 +411,38 @@ try {
             -Args $watchlistArgs
         )) | Out-Null
 
+        if ($RunOpenClawGatewayCheck) {
+            $openclawDir = Join-Path $resolvedOutputDir "openclaw"
+            $openclawEvidencePath = Join-Path $openclawDir "openclaw-gateway-check.json"
+            $openclawArgs = @(
+                "-EvidenceOutPath", $openclawEvidencePath,
+                "-VerifiedBy", ("steady-state-run:{0}" -f $cycleId),
+                "-NoAppendStagingRecord",
+                "-TimeoutSec", $OpenClawTimeoutSec,
+                "-ProbeTimeoutSec", $OpenClawProbeTimeoutSec
+            )
+            if (-not [string]::IsNullOrWhiteSpace($OpenClawGatewayBaseUrl)) {
+                $openclawArgs += @("-GatewayBaseUrl", $OpenClawGatewayBaseUrl)
+            }
+            if (-not [string]::IsNullOrWhiteSpace($OpenClawAgentId)) {
+                $openclawArgs += @("-AgentId", $OpenClawAgentId)
+            }
+            if (-not [string]::IsNullOrWhiteSpace($OpenClawBackendModel)) {
+                $openclawArgs += @("-BackendModel", $OpenClawBackendModel)
+            }
+            if (-not [string]::IsNullOrWhiteSpace($OpenClawAuthToken)) {
+                $openclawArgs += @("-AuthToken", $OpenClawAuthToken)
+            }
+            $steps.Add((Invoke-SteadyStateStep `
+                -StepName "openclaw_gateway_check" `
+                -ScriptPath $resolvedOpenClawEvidenceCaptureScriptPath `
+                -RunnerExe $runnerExe `
+                -StepLogPath (Join-Path $resolvedOutputDir "step-openclaw.log") `
+                -Args $openclawArgs
+            )) | Out-Null
+            $openclawCheckStatus = "passed"
+        }
+
         if ($Mode -eq "weekly") {
             $improvementDir = Join-Path $resolvedOutputDir "improvement"
             $improvementManifestPath = Join-Path $improvementDir "ga-steady-state-improvement-backlog.manifest.json"
@@ -446,6 +498,7 @@ try {
 $checkpointSummary = $null
 $watchlistSummary = $null
 $watchlistManifest = $null
+$openclawEvidence = $null
 if (-not $paused -and (Test-Path $checkpointSummaryPath)) {
     $checkpointSummary = Read-OperatorJsonFile -Path $checkpointSummaryPath
 }
@@ -454,6 +507,16 @@ if (-not $paused -and (Test-Path $watchlistSummaryPath)) {
 }
 if (-not $paused -and (Test-Path $watchlistManifestPath)) {
     $watchlistManifest = Read-OperatorJsonFile -Path $watchlistManifestPath
+}
+if ($RunOpenClawGatewayCheck -and (Test-Path $openclawEvidencePath)) {
+    $openclawEvidence = Read-OperatorJsonFile -Path $openclawEvidencePath
+    $openclawModelsProbeControlHtml = [bool](Get-OperatorObjectPropertyValue -Object $openclawEvidence -Name "models_probe_control_html")
+    if ($openclawCheckStatus -ne "passed") {
+        $gatewaySuccessValue = Get-OperatorObjectPropertyValue -Object $openclawEvidence -Name "gateway_response_success"
+        $openclawCheckStatus = if ($gatewaySuccessValue -eq $true) { "passed" } else { "failed" }
+    }
+} elseif ($RunOpenClawGatewayCheck -and $openclawCheckStatus -ne "passed") {
+    $openclawCheckStatus = "failed"
 }
 
 $overallCheckpointDecision = if ($null -ne $checkpointSummary) { [string]$checkpointSummary.overall_checkpoint_decision } else { "unknown" }
@@ -551,6 +614,11 @@ $stagingBlock.Add("") | Out-Null
 $stagingBlock.Add("### Run artifacts") | Out-Null
 $stagingBlock.Add(('- run_manifest: `{0}`' -f $OutPath)) | Out-Null
 $stagingBlock.Add(('- run_summary: `{0}`' -f $SummaryOutPath)) | Out-Null
+if ($RunOpenClawGatewayCheck) {
+    $stagingBlock.Add(('- openclaw_check_status: `{0}`' -f $openclawCheckStatus)) | Out-Null
+    $stagingBlock.Add(('- openclaw_evidence: `{0}`' -f $openclawEvidencePath)) | Out-Null
+    $stagingBlock.Add(('- openclaw_models_probe_control_html: `{0}`' -f $openclawModelsProbeControlHtml.ToString().ToLowerInvariant())) | Out-Null
+}
 if ($knownIssueTouched.Count -gt 0) {
     $stagingBlock.Add(('- known_issue_updates: `{0}`' -f ($knownIssueTouched -join ", "))) | Out-Null
 }
@@ -576,6 +644,8 @@ $state.consecutive_escalate_count = $consecutiveEscalate
 $state.open_watch_count = $watchCount
 $state.open_escalate_count = $escalateCount
 $state.last_owner_assignment_pending_count = $ownerAssignmentPendingCount
+$state.last_openclaw_status = $openclawCheckStatus
+$state.last_openclaw_evidence_path = $openclawEvidencePath
 $state.paused_reason = if ($paused) { $pausedReason } else { "" }
 $state.consecutive_external_blocker_count = $consecutiveExternalBlocker
 Save-OperatorJson -Payload $state -OutPath $resolvedStatePath
@@ -595,6 +665,10 @@ $summary = [ordered]@{
     owner_ack_applied_count = $ownerAckAppliedCount
     consecutive_escalate_count = $consecutiveEscalate
     consecutive_external_blocker_count = $consecutiveExternalBlocker
+    openclaw_check_enabled = [bool]$RunOpenClawGatewayCheck
+    openclaw_check_status = $openclawCheckStatus
+    openclaw_evidence_path = $openclawEvidencePath
+    openclaw_models_probe_control_html = $openclawModelsProbeControlHtml
     known_issue_update_count = $knownIssueTouched.Count
     state_path = $resolvedStatePath
 }
@@ -610,6 +684,7 @@ $manifest = [ordered]@{
         state_file = New-OperatorManifestArtifactEntry -Path $resolvedStatePath -RepoRoot $repoRoot
         checkpoint_manifest = New-OperatorManifestArtifactEntry -Path $checkpointManifestPath -RepoRoot $repoRoot
         watchlist_manifest = New-OperatorManifestArtifactEntry -Path $watchlistManifestPath -RepoRoot $repoRoot
+        openclaw_evidence = New-OperatorManifestArtifactEntry -Path $openclawEvidencePath -RepoRoot $repoRoot
         cadence_manifest = New-OperatorManifestArtifactEntry -Path $cadenceManifestPath -RepoRoot $repoRoot
         improvement_manifest = New-OperatorManifestArtifactEntry -Path $improvementManifestPath -RepoRoot $repoRoot
         burndown_manifest = New-OperatorManifestArtifactEntry -Path $burndownManifestPath -RepoRoot $repoRoot
@@ -643,6 +718,9 @@ Write-Host ("  mode                  : {0}" -f $Mode)
 Write-Host ("  paused                : {0}" -f $paused.ToString().ToLowerInvariant())
 Write-Host ("  checkpoint_decision   : {0}" -f $overallCheckpointDecision)
 Write-Host ("  watchlist_decision    : {0}" -f $overallWatchlistDecision)
+if ($RunOpenClawGatewayCheck) {
+    Write-Host ("  openclaw_check_status : {0}" -f $openclawCheckStatus)
+}
 Write-Host ("  known_issue_updates   : {0}" -f $knownIssueTouched.Count)
 Write-Host ("  manifest              : {0}" -f $OutPath)
 Write-Host ("  summary               : {0}" -f $SummaryOutPath)

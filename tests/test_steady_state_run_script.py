@@ -318,3 +318,115 @@ def test_steady_state_run_owner_ack_prevents_repeated_escalation_pause(tmp_path:
     assert summary["consecutive_escalate_count"] == 0
     assert summary["paused"] is False
     assert state["last_status"] == "ok"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="PowerShell script contracts are Windows-only.")
+@pytest.mark.skipif(
+    POWERSHELL_EXE is None,
+    reason="PowerShell is required for steady-state runtime loop tests.",
+)
+def test_steady_state_run_with_openclaw_check_writes_evidence_fields(tmp_path: Path) -> None:
+    logs_root = tmp_path / "logs"
+    state_path = tmp_path / "steady_state_runtime_state.json"
+    known_issues_path = tmp_path / "known_issues_register.md"
+    staging_path = tmp_path / "staging_execution_record.md"
+    out_dir = tmp_path / "steady-state-run"
+    out_manifest = out_dir / "steady-state-run.manifest.json"
+    out_summary = out_dir / "steady-state-run.summary.json"
+    owner_ack_path = tmp_path / "owner-ack.json"
+    openclaw_script = tmp_path / "openclaw-evidence-capture-mock.ps1"
+
+    _write_json(owner_ack_path, {"rules": []})
+    _write_json(
+        logs_root / "ga-adoption" / "monthly" / "ga-monthly-reliability-targets.manifest.json",
+        {
+            "bundle_type": "phase17_ga_monthly_reliability_target_package",
+            "summary": {"monthly_decision": "go", "monthly_decision_reasons": ["monthly healthy"]},
+        },
+    )
+    _write_json(
+        logs_root / "ga-adoption" / "quarterly" / "ga-quarterly-review-package.manifest.json",
+        {
+            "bundle_type": "phase18_quarterly_review_package",
+            "summary": {
+                "quarterly_review_decision": "watch",
+                "quarterly_review_decision_reasons": ["quarterly watch posture"],
+            },
+        },
+    )
+    _write_json(
+        logs_root / "release-train" / "evidence" / "release-train-evidence.manifest.json",
+        {
+            "bundle_type": "phase14_release_train_evidence",
+            "summary": {"decision": "HOLD"},
+            "next_steps": ["release hold reason"],
+        },
+    )
+
+    openclaw_script.write_text(
+        "\n".join(
+            [
+                "param(",
+                "  [string]$GatewayBaseUrl = '',",
+                "  [string]$AgentId = 'default',",
+                "  [string]$BackendModel = '',",
+                "  [string]$AuthToken = '',",
+                "  [int]$TimeoutSec = 0,",
+                "  [int]$ProbeTimeoutSec = 0,",
+                "  [string]$EvidenceOutPath = '',",
+                "  [string]$VerifiedBy = '',",
+                "  [switch]$NoAppendStagingRecord",
+                ")",
+                "$dir = Split-Path -Parent $EvidenceOutPath",
+                "if (-not [string]::IsNullOrWhiteSpace($dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }",
+                "$payload = @{",
+                "  gateway_response_success = $true",
+                "  models_probe_control_html = $false",
+                "  used_endpoint = 'chat/completions'",
+                "}",
+                "$json = $payload | ConvertTo-Json -Depth 5",
+                "Set-Content -Path $EvidenceOutPath -Value $json -Encoding UTF8",
+                "Write-Host '[done] mock openclaw evidence'",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = _run_script(
+        "-Mode",
+        "daily",
+        "-LogsRoot",
+        str(logs_root),
+        "-StatePath",
+        str(state_path),
+        "-KnownIssuesPath",
+        str(known_issues_path),
+        "-StagingRecordPath",
+        str(staging_path),
+        "-OutputDir",
+        str(out_dir),
+        "-OutPath",
+        str(out_manifest),
+        "-SummaryOutPath",
+        str(out_summary),
+        "-WatchlistOwnerAckPath",
+        str(owner_ack_path),
+        "-RunOpenClawGatewayCheck",
+        "-OpenClawEvidenceCaptureScriptPath",
+        str(openclaw_script),
+    )
+
+    assert result.returncode == 0, result.stderr
+    manifest = json.loads(out_manifest.read_text(encoding="utf-8"))
+    summary = json.loads(out_summary.read_text(encoding="utf-8"))
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+
+    assert summary["openclaw_check_enabled"] is True
+    assert summary["openclaw_check_status"] == "passed"
+    assert summary["openclaw_evidence_path"]
+    assert Path(summary["openclaw_evidence_path"]).exists()
+    assert state["last_openclaw_status"] == "passed"
+    assert Path(state["last_openclaw_evidence_path"]).exists()
+    openclaw_artifact = manifest["artifacts"]["openclaw_evidence"]
+    assert openclaw_artifact["path"] == summary["openclaw_evidence_path"]

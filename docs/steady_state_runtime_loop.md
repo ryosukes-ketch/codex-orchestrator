@@ -9,6 +9,19 @@ Provide a single-entry operational loop after roadmap completion (`steady_state`
 .\scripts\steady-state-run.ps1 -Mode daily -WatchlistOwnerAckPath .\docs\steady_state_watchlist_owner_ack.json -Zip
 ```
 
+Daily run with OpenClaw live probe evidence (timeout-bounded):
+
+```powershell
+.\scripts\steady-state-run.ps1 `
+  -Mode daily `
+  -WatchlistOwnerAckPath .\docs\steady_state_watchlist_owner_ack.json `
+  -RunOpenClawGatewayCheck `
+  -OpenClawAgentId codex-orchestrator `
+  -OpenClawTimeoutSec 30 `
+  -OpenClawProbeTimeoutSec 15 `
+  -Zip
+```
+
 Weekly heavier loop:
 
 ```powershell
@@ -28,10 +41,11 @@ Weekly heavier loop:
 3. Checkpoint refresh.
 4. Watchlist routing.
 5. Improvement backlog + burndown refresh (`weekly` mode).
-6. Known issue update decision.
-7. Staging execution record append.
-8. Runtime state file update.
-9. Pause classification on repeated external/operational blockers.
+6. Optional OpenClaw gateway evidence capture (`-RunOpenClawGatewayCheck`).
+7. Known issue update decision.
+8. Staging execution record append.
+9. Runtime state file update.
+10. Pause classification on repeated external/operational blockers.
 
 ## Output contract
 Per run, the script writes:
@@ -56,6 +70,8 @@ Required tracked fields:
 - `open_watch_count`
 - `open_escalate_count`
 - `last_owner_assignment_pending_count`
+- `last_openclaw_status`
+- `last_openclaw_evidence_path`
 - `paused_reason`
 
 ## Pause conditions
@@ -64,6 +80,7 @@ The loop marks `paused=true` when one of the following is detected:
 - owner-assignment pending count above configured threshold,
 - repeated escalation count above configured threshold,
 - preflight/governance inconsistency for steady-state mode.
+- optional OpenClaw evidence capture failure (classified as `external_blocker`).
 
 Pause output includes:
 - `paused`
