@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from uuid import uuid4
 
 from app.agents.departments import BuildAgent, DesignAgent, ResearchAgent, ReviewAgent, TrendAgent
+from app.llm.mock_client import MockLLMClient
+from app.llm.openclaw_client import OpenClawLLMClient
+from app.llm.registry import DepartmentRegistry
 from app.orchestrator.graph import can_transition
 from app.providers.factory import get_trend_provider
 from app.schemas.brief import ProjectBrief
@@ -14,8 +17,11 @@ from app.schemas.project import (
     ApprovalActionType,
     ApprovalRequest,
     ApprovalStatus,
+    Artifact,
     Checkpoint,
     Department,
+    DepartmentStageSummary,
+    DepartmentStageTotals,
     HistoryEvent,
     HistoryEventType,
     OrchestrationResult,
@@ -25,6 +31,7 @@ from app.schemas.project import (
     ProjectRecord,
     ProjectStatus,
     ProjectSummary,
+    Review,
     RevisionResumeMode,
     Task,
     TaskStatus,
@@ -47,9 +54,11 @@ class PMOrchestrator:
         self,
         repository: ProjectRepository | None = None,
         approval_policy: ApprovalPolicy | None = None,
+        department_registry: DepartmentRegistry | None = None,
     ) -> None:
         self.repository = repository or create_repository_from_env()
         self.approval_policy = approval_policy or ApprovalPolicy()
+        self.department_registry = department_registry or DepartmentRegistry.all_mock()
 
     def _build_plan(self) -> list[Task]:
         return [
@@ -130,12 +139,508 @@ class PMOrchestrator:
         )
 
     @staticmethod
+    def _describe_llm_client(client: object | None) -> dict[str, str]:
+        if client is None:
+            return {"effective_provider": "none", "effective_model": ""}
+
+        if isinstance(client, MockLLMClient):
+            return {"effective_provider": "mock", "effective_model": "mock"}
+
+        if isinstance(client, OpenClawLLMClient):
+            agent_id = getattr(client, "_agent_id", "default")
+            backend_model = getattr(client, "_backend_model", "") or ""
+            effective_model = f"openclaw/{agent_id}"
+            if backend_model:
+                effective_model = f"{effective_model}@{backend_model}"
+            return {
+                "effective_provider": "openclaw",
+                "effective_model": effective_model,
+            }
+
+        class_name = client.__class__.__name__.lower()
+        provider = class_name.removesuffix("llmclient") or class_name
+        model = str(getattr(client, "_model", "") or "")
+        return {
+            "effective_provider": provider,
+            "effective_model": model,
+        }
+
+    def _record_department_stage_events(
+        self,
+        *,
+        record: ProjectRecord,
+        actor: ActorContext,
+        task: Task,
+        department: Department,
+        stage_trace: list[dict],
+        llm_client: object | None,
+    ) -> None:
+        if not stage_trace:
+            return
+
+        client_metadata = self._describe_llm_client(llm_client)
+        ordered_trace = sorted(
+            stage_trace,
+            key=lambda entry: int(entry.get("sequence", 0)),
+        )
+        previous_stage_name = ""
+        for entry in ordered_trace:
+            stage_name = str(entry.get("stage_name", "")).strip() or "unknown_stage"
+            sequence = int(entry.get("sequence", 0))
+            llm_metadata = entry.get("llm_metadata", {})
+            if not isinstance(llm_metadata, dict):
+                llm_metadata = {}
+            metadata: dict[str, str | int | bool] = {
+                "department": department.value,
+                "task_id": task.id,
+                "stage_name": stage_name,
+                "sequence": sequence,
+                "parent_stage_name": previous_stage_name,
+                "fallback_used": bool(entry.get("fallback_used", False)),
+                "stage_success": bool(entry.get("success", False)),
+                **client_metadata,
+            }
+            failure_reason = str(entry.get("failure_reason", "")).strip()
+            if failure_reason:
+                metadata["stage_failure_reason"] = failure_reason
+            llm_endpoint = str(llm_metadata.get("gateway_endpoint", "")).strip()
+            if llm_endpoint:
+                metadata["llm_endpoint"] = llm_endpoint
+            llm_error_kind = str(llm_metadata.get("gateway_error_kind", "")).strip()
+            if llm_error_kind:
+                metadata["llm_error_kind"] = llm_error_kind
+            llm_fallback_reason = str(llm_metadata.get("gateway_fallback_reason", "")).strip()
+            if llm_fallback_reason:
+                metadata["llm_fallback_reason"] = llm_fallback_reason
+            response_mode = str(llm_metadata.get("response_mode", "")).strip()
+            if response_mode:
+                metadata["llm_response_mode"] = response_mode
+            llm_content_kind = str(llm_metadata.get("gateway_content_kind", "")).strip()
+            if llm_content_kind:
+                metadata["llm_content_kind"] = llm_content_kind
+            llm_backend_override = str(llm_metadata.get("gateway_backend_override", "")).strip()
+            if llm_backend_override:
+                metadata["llm_backend_override"] = llm_backend_override
+            llm_upstream_provider = str(llm_metadata.get("gateway_upstream_provider", "")).strip()
+            if llm_upstream_provider:
+                metadata["llm_upstream_provider"] = llm_upstream_provider
+            llm_upstream_rejection_reason = str(
+                llm_metadata.get("gateway_upstream_rejection_reason", "")
+            ).strip()
+            if llm_upstream_rejection_reason:
+                metadata["llm_upstream_rejection_reason"] = llm_upstream_rejection_reason
+            if "gateway_upstream_rejection" in llm_metadata:
+                metadata["llm_upstream_rejection"] = bool(
+                    llm_metadata.get("gateway_upstream_rejection")
+                )
+            if "gateway_status_code" in llm_metadata:
+                try:
+                    metadata["llm_http_status"] = int(llm_metadata.get("gateway_status_code", 0))
+                except (TypeError, ValueError):
+                    pass
+            if "gateway_fallback_used" in llm_metadata:
+                metadata["llm_transport_fallback_used"] = bool(
+                    llm_metadata.get("gateway_fallback_used")
+                )
+            self._record_event(
+                record,
+                event_type=HistoryEventType.DEPARTMENT_STAGE_EXECUTED,
+                actor=actor,
+                reason=f"{department.value}:{stage_name}",
+                metadata=metadata,
+            )
+            previous_stage_name = stage_name
+
+    def _block_on_openclaw_stage_fallback(
+        self,
+        *,
+        record: ProjectRecord,
+        actor: ActorContext,
+        task: Task,
+        department: Department,
+        stage_trace: list[dict],
+        llm_client: object | None,
+    ) -> OrchestrationResult | None:
+        client_metadata = self._describe_llm_client(llm_client)
+        if client_metadata.get("effective_provider") != "openclaw":
+            return None
+        if not stage_trace:
+            return None
+        if any(bool(entry.get("success", False)) for entry in stage_trace):
+            return None
+
+        failure_reasons = sorted(
+            {
+                str(entry.get("failure_reason", "")).strip()
+                for entry in stage_trace
+                if str(entry.get("failure_reason", "")).strip()
+            }
+        )
+        if not failure_reasons:
+            return None
+
+        blocker_reason = (
+            "OpenClaw live semantic output unavailable for "
+            f"{department.value}: {', '.join(failure_reasons)}"
+        )
+        task.note = blocker_reason
+        self._set_task_status(
+            record,
+            task,
+            TaskStatus.BLOCKED,
+            actor=actor,
+            reason=blocker_reason,
+        )
+        self.repository.save(record)
+
+        next_steps = [
+            "Inspect department_stage_executed audit events for exact stage failure reasons.",
+            "Restore valid JSON output from the OpenClaw department stages before retrying.",
+            "Rerun the project after the OpenClaw semantic blocker is resolved.",
+        ]
+        if any(reason.startswith("upstream_rejection:") for reason in failure_reasons):
+            next_steps = [
+                "Resolve the OpenClaw upstream provider credit/policy blocker.",
+                (
+                    "Confirm the gateway returns valid JSON semantic output "
+                    "instead of upstream rejection text."
+                ),
+                "Rerun the project after the upstream blocker is resolved.",
+            ]
+
+        return self._summary(record, next_steps=next_steps)
+
+    @staticmethod
+    def _build_department_stage_summary(
+        record: ProjectRecord,
+    ) -> list[DepartmentStageSummary]:
+        summary: dict[tuple[str, str, int, str], dict[str, object]] = {}
+
+        for event in record.events:
+            if event.event_type != HistoryEventType.DEPARTMENT_STAGE_EXECUTED:
+                continue
+            metadata = event.metadata or {}
+            department = str(metadata.get("department", "")).strip()
+            stage_name = str(metadata.get("stage_name", "")).strip()
+            if not department or not stage_name:
+                continue
+
+            try:
+                sequence = int(metadata.get("sequence", 0))
+            except (TypeError, ValueError):
+                sequence = 0
+
+            parent_stage_name = str(metadata.get("parent_stage_name", "")).strip()
+            key = (department, stage_name, sequence, parent_stage_name)
+
+            if key not in summary:
+                summary[key] = {
+                    "department": department,
+                    "stage_name": stage_name,
+                    "sequence": sequence,
+                    "parent_stage_name": parent_stage_name,
+                    "execution_count": 0,
+                    "success_count": 0,
+                    "failure_count": 0,
+                    "fallback_count": 0,
+                    "llm_transport_fallback_count": 0,
+                    "failure_reasons": [],
+                    "effective_providers": [],
+                    "effective_models": [],
+                    "llm_endpoints": [],
+                    "llm_http_statuses": [],
+                    "llm_error_kinds": [],
+                    "llm_response_modes": [],
+                }
+
+            entry = summary[key]
+            entry["execution_count"] = int(entry["execution_count"]) + 1
+            stage_success = bool(metadata.get("stage_success", False))
+            if stage_success:
+                entry["success_count"] = int(entry["success_count"]) + 1
+            else:
+                entry["failure_count"] = int(entry["failure_count"]) + 1
+            if bool(metadata.get("fallback_used", False)):
+                entry["fallback_count"] = int(entry["fallback_count"]) + 1
+            if bool(metadata.get("llm_transport_fallback_used", False)):
+                entry["llm_transport_fallback_count"] = (
+                    int(entry["llm_transport_fallback_count"]) + 1
+                )
+
+            failure_reason = str(metadata.get("stage_failure_reason", "")).strip()
+            if failure_reason:
+                failure_reasons = entry["failure_reasons"]
+                if isinstance(failure_reasons, list) and failure_reason not in failure_reasons:
+                    failure_reasons.append(failure_reason)
+
+            effective_provider = str(metadata.get("effective_provider", "")).strip()
+            if effective_provider:
+                providers = entry["effective_providers"]
+                if isinstance(providers, list) and effective_provider not in providers:
+                    providers.append(effective_provider)
+
+            effective_model = str(metadata.get("effective_model", "")).strip()
+            if effective_model:
+                models = entry["effective_models"]
+                if isinstance(models, list) and effective_model not in models:
+                    models.append(effective_model)
+
+            llm_endpoint = str(metadata.get("llm_endpoint", "")).strip()
+            if llm_endpoint:
+                endpoints = entry["llm_endpoints"]
+                if isinstance(endpoints, list) and llm_endpoint not in endpoints:
+                    endpoints.append(llm_endpoint)
+
+            llm_error_kind = str(metadata.get("llm_error_kind", "")).strip()
+            if llm_error_kind:
+                error_kinds = entry["llm_error_kinds"]
+                if isinstance(error_kinds, list) and llm_error_kind not in error_kinds:
+                    error_kinds.append(llm_error_kind)
+
+            llm_response_mode = str(metadata.get("llm_response_mode", "")).strip()
+            if llm_response_mode:
+                response_modes = entry["llm_response_modes"]
+                if isinstance(response_modes, list) and llm_response_mode not in response_modes:
+                    response_modes.append(llm_response_mode)
+
+            if "llm_http_status" in metadata:
+                try:
+                    llm_http_status = int(metadata.get("llm_http_status", 0))
+                except (TypeError, ValueError):
+                    llm_http_status = 0
+                if llm_http_status > 0:
+                    http_statuses = entry["llm_http_statuses"]
+                    if isinstance(http_statuses, list) and llm_http_status not in http_statuses:
+                        http_statuses.append(llm_http_status)
+
+        ordered_entries = sorted(
+            summary.values(),
+            key=lambda item: (
+                str(item["department"]),
+                int(item["sequence"]),
+                str(item["stage_name"]),
+            ),
+        )
+        return [DepartmentStageSummary.model_validate(item) for item in ordered_entries]
+
+    @staticmethod
+    def _build_department_stage_totals(
+        stage_summary: list[DepartmentStageSummary],
+    ) -> DepartmentStageTotals:
+        total_stage_executions = sum(item.execution_count for item in stage_summary)
+        total_successes = sum(item.success_count for item in stage_summary)
+        total_failures = sum(item.failure_count for item in stage_summary)
+        total_fallbacks = sum(item.fallback_count for item in stage_summary)
+        total_llm_transport_fallbacks = sum(
+            item.llm_transport_fallback_count for item in stage_summary
+        )
+        departments_covered = sorted({item.department for item in stage_summary if item.department})
+        llm_endpoints_observed = sorted(
+            {endpoint for item in stage_summary for endpoint in item.llm_endpoints if endpoint}
+        )
+        return DepartmentStageTotals(
+            total_stage_executions=total_stage_executions,
+            total_successes=total_successes,
+            total_failures=total_failures,
+            total_fallbacks=total_fallbacks,
+            total_llm_transport_fallbacks=total_llm_transport_fallbacks,
+            departments_covered=departments_covered,
+            llm_endpoints_observed=llm_endpoints_observed,
+            has_failures=total_failures > 0,
+            has_fallbacks=total_fallbacks > 0,
+        )
+
+    @staticmethod
     def _normalize_text(value: str) -> str:
         return value.strip()
 
     @staticmethod
     def _compose_decision_note(primary: str, secondary: str) -> str:
         return " ".join(part for part in (primary, secondary) if part)
+
+    @staticmethod
+    def _latest_live_run_evidence_content(record: ProjectRecord) -> dict[str, object]:
+        for artifact in reversed(record.artifacts):
+            if artifact.artifact_type != "live_run_evidence":
+                continue
+            if isinstance(artifact.content, dict):
+                return dict(artifact.content)
+        return {}
+
+    @staticmethod
+    def _contains_blocking_review_marker(findings: list[str]) -> bool:
+        blocking_markers = (
+            "simulated review failure",
+            "security",
+            "unsafe",
+            "vulnerability",
+            "data loss",
+            "destructive",
+            "authorization failure",
+            "auth failure",
+            "policy violation",
+            "transport error",
+            "upstream_rejection",
+            "llm_exception",
+            "non_json_response",
+            "missing_required_keys",
+            "allowlist",
+            "backend override mismatch",
+        )
+        for finding in findings:
+            lowered = finding.lower()
+            if any(marker in lowered for marker in blocking_markers):
+                return True
+        return False
+
+    @staticmethod
+    def _has_event_type(record: ProjectRecord, event_type: HistoryEventType) -> bool:
+        return any(event.event_type == event_type for event in record.events)
+
+    def _should_treat_review_as_blocking(
+        self,
+        *,
+        record: ProjectRecord,
+        review: Review,
+    ) -> bool:
+        if review.verdict != "changes_requested":
+            return False
+
+        findings = [str(item).strip() for item in review.findings if str(item).strip()]
+        if self._contains_blocking_review_marker(findings):
+            return True
+
+        evidence = self._latest_live_run_evidence_content(record)
+        stage_totals = evidence.get("stage_totals", {})
+        if not isinstance(stage_totals, dict):
+            stage_totals = {}
+        total_failures = int(stage_totals.get("total_failures", 0) or 0)
+        total_fallbacks = int(stage_totals.get("total_fallbacks", 0) or 0)
+        total_llm_transport_fallbacks = int(
+            stage_totals.get("total_llm_transport_fallbacks", 0) or 0
+        )
+        has_clean_stage_telemetry = (
+            int(stage_totals.get("total_stage_executions", 0) or 0) > 0
+            and total_failures == 0
+            and total_fallbacks == 0
+            and total_llm_transport_fallbacks == 0
+        )
+
+        has_stage_event_snapshot = bool(evidence.get("department_stage_executed_events"))
+        post_run_map = evidence.get("post_run_artifact_map", {})
+        has_post_run_artifact_map = isinstance(post_run_map, dict) and bool(post_run_map)
+
+        has_approval_context = bool(record.approvals) or self._has_event_type(
+            record,
+            HistoryEventType.APPROVAL_REQUESTED,
+        )
+        has_approval_requested = self._has_event_type(record, HistoryEventType.APPROVAL_REQUESTED)
+        has_approval_decision = self._has_event_type(
+            record,
+            HistoryEventType.APPROVAL_APPROVED,
+        ) or self._has_event_type(record, HistoryEventType.APPROVAL_REJECTED)
+        approval_evidence_ok = (
+            has_approval_requested and has_approval_decision
+            if has_approval_context
+            else True
+        )
+
+        evidence_consistent = (
+            has_clean_stage_telemetry
+            and has_stage_event_snapshot
+            and has_post_run_artifact_map
+            and approval_evidence_ok
+        )
+        if evidence_consistent:
+            review.verdict = "approved"
+            if findings:
+                review.findings = [f"[non_blocking] {item}" for item in findings]
+            return False
+
+        return True
+
+    def _build_live_run_evidence_artifact(
+        self,
+        *,
+        record: ProjectRecord,
+        task: Task,
+    ) -> Artifact:
+        stage_summary = self._build_department_stage_summary(record)
+        stage_totals = self._build_department_stage_totals(stage_summary)
+        approval_states = [
+            {
+                "action_type": approval.action_type.value,
+                "status": approval.status.value,
+                "reason": approval.reason,
+            }
+            for approval in record.approvals
+        ]
+        checkpoint_states = [
+            {
+                "name": checkpoint.name,
+                "approved": checkpoint.approved,
+                "approver": checkpoint.approver,
+                "note": checkpoint.note,
+            }
+            for checkpoint in record.checkpoints
+        ]
+        recent_events = [
+            {
+                "event_type": event.event_type.value,
+                "reason": event.reason,
+            }
+            for event in record.events[-12:]
+        ]
+        department_stage_executed_events = [
+            {
+                "reason": event.reason,
+                "event_type": event.event_type.value,
+                "timestamp": (
+                    event.timestamp.isoformat()
+                    if hasattr(event.timestamp, "isoformat")
+                    else str(event.timestamp)
+                ),
+            }
+            for event in record.events
+            if event.event_type == HistoryEventType.DEPARTMENT_STAGE_EXECUTED
+        ]
+        return Artifact(
+            id=f"artifact-{task.id}-live-evidence",
+            task_id=task.id,
+            artifact_type="live_run_evidence",
+            content={
+                "project_id": record.project.id,
+                "status": record.project.status.value,
+                "history": list(record.history),
+                "completed_tasks": len(
+                    [
+                        current_task
+                        for current_task in record.tasks
+                        if current_task.status == TaskStatus.DONE
+                    ]
+                ),
+                "artifact_count_before_review": len(record.artifacts),
+                "approval_states": approval_states,
+                "checkpoint_states": checkpoint_states,
+                "stage_summary": [item.model_dump(mode="json") for item in stage_summary],
+                "stage_totals": stage_totals.model_dump(mode="json"),
+                "recent_events": recent_events,
+                "department_stage_executed_events": department_stage_executed_events,
+                "post_run_artifact_map": {
+                    "status_summary": "scripts/operator-status.ps1",
+                    "audit_export": "scripts/operator-audit.ps1",
+                    "cycle_bundle_manifest": "scripts/operator-full-cycle.ps1",
+                    "suite_bundle_manifest": "scripts/operator-cycle-suite.ps1",
+                    "handoff_envelope": "scripts/operator-handoff-envelope.ps1",
+                    "stage_gate": "scripts/operator-stage-gate.ps1",
+                    "readiness_manifest": "scripts/release-readiness.ps1",
+                },
+                "evidence_note": (
+                    "Current audit and stage-telemetry snapshot captured from the live "
+                    "project state before review."
+                ),
+            },
+        )
 
     @staticmethod
     def _revision_resume_next_steps() -> list[str]:
@@ -528,11 +1033,15 @@ class PMOrchestrator:
     ) -> OrchestrationResult:
         actor_context = actor or self._system_actor()
         brief = record.project.brief
-        research_agent = ResearchAgent()
-        design_agent = DesignAgent()
-        build_agent = BuildAgent()
+        research_client = self.department_registry.get_client(Department.RESEARCH)
+        design_client = self.department_registry.get_client(Department.DESIGN)
+        build_client = self.department_registry.get_client(Department.BUILD)
+        review_client = self.department_registry.get_client(Department.REVIEW)
+        research_agent = ResearchAgent(llm=research_client)
+        design_agent = DesignAgent(llm=design_client)
+        build_agent = BuildAgent(llm=build_client)
         trend_agent = TrendAgent(provider=get_trend_provider(trend_provider_name))
-        review_agent = ReviewAgent()
+        review_agent = ReviewAgent(llm=review_client)
 
         current_cycle_review_failed = False
         review_ran = False
@@ -544,11 +1053,71 @@ class PMOrchestrator:
             self._set_task_status(record, task, TaskStatus.IN_PROGRESS, actor=actor_context)
 
             if task.department == Department.RESEARCH:
-                self._upsert_artifact(record, research_agent.run(task, brief))
+                artifact = research_agent.run(task, brief)
+                stage_trace = research_agent.drain_stage_trace()
+                self._record_department_stage_events(
+                    record=record,
+                    actor=actor_context,
+                    task=task,
+                    department=Department.RESEARCH,
+                    stage_trace=stage_trace,
+                    llm_client=research_client,
+                )
+                blocker_result = self._block_on_openclaw_stage_fallback(
+                    record=record,
+                    actor=actor_context,
+                    task=task,
+                    department=Department.RESEARCH,
+                    stage_trace=stage_trace,
+                    llm_client=research_client,
+                )
+                if blocker_result is not None:
+                    return blocker_result
+                self._upsert_artifact(record, artifact)
             elif task.department == Department.DESIGN:
-                self._upsert_artifact(record, design_agent.run(task, brief))
+                artifact = design_agent.run(task, brief)
+                stage_trace = design_agent.drain_stage_trace()
+                self._record_department_stage_events(
+                    record=record,
+                    actor=actor_context,
+                    task=task,
+                    department=Department.DESIGN,
+                    stage_trace=stage_trace,
+                    llm_client=design_client,
+                )
+                blocker_result = self._block_on_openclaw_stage_fallback(
+                    record=record,
+                    actor=actor_context,
+                    task=task,
+                    department=Department.DESIGN,
+                    stage_trace=stage_trace,
+                    llm_client=design_client,
+                )
+                if blocker_result is not None:
+                    return blocker_result
+                self._upsert_artifact(record, artifact)
             elif task.department == Department.BUILD:
-                self._upsert_artifact(record, build_agent.run(task, brief))
+                artifact = build_agent.run(task, brief)
+                stage_trace = build_agent.drain_stage_trace()
+                self._record_department_stage_events(
+                    record=record,
+                    actor=actor_context,
+                    task=task,
+                    department=Department.BUILD,
+                    stage_trace=stage_trace,
+                    llm_client=build_client,
+                )
+                blocker_result = self._block_on_openclaw_stage_fallback(
+                    record=record,
+                    actor=actor_context,
+                    task=task,
+                    department=Department.BUILD,
+                    stage_trace=stage_trace,
+                    llm_client=build_client,
+                )
+                if blocker_result is not None:
+                    return blocker_result
+                self._upsert_artifact(record, artifact)
             elif task.department == Department.TREND:
                 approval_action = ApprovalActionType.EXTERNAL_API_SEND
                 if trend_agent.provider.name.strip().lower() != "mock":
@@ -613,13 +1182,39 @@ class PMOrchestrator:
                         )
                 self._upsert_artifact(record, trend_agent.run(task, brief))
             elif task.department == Department.REVIEW:
-                review = review_agent.run(task, record.artifacts)
+                self._upsert_artifact(
+                    record,
+                    self._build_live_run_evidence_artifact(record=record, task=task),
+                )
+                review = review_agent.run(task, record.artifacts, brief=brief)
+                stage_trace = review_agent.drain_stage_trace()
+                self._record_department_stage_events(
+                    record=record,
+                    actor=actor_context,
+                    task=task,
+                    department=Department.REVIEW,
+                    stage_trace=stage_trace,
+                    llm_client=review_client,
+                )
+                blocker_result = self._block_on_openclaw_stage_fallback(
+                    record=record,
+                    actor=actor_context,
+                    task=task,
+                    department=Department.REVIEW,
+                    stage_trace=stage_trace,
+                    llm_client=review_client,
+                )
+                if blocker_result is not None:
+                    return blocker_result
                 review_ran = True
                 if simulate_review_failure:
                     review.verdict = "changes_requested"
                     if "Simulated review failure for rollback flow test." not in review.findings:
                         review.findings.append("Simulated review failure for rollback flow test.")
-                current_cycle_review_failed = review.verdict == "changes_requested"
+                current_cycle_review_failed = self._should_treat_review_as_blocking(
+                    record=record,
+                    review=review,
+                )
                 record.reviews.append(review)
 
             self._set_task_status(record, task, TaskStatus.DONE, actor=actor_context)
@@ -726,26 +1321,43 @@ class PMOrchestrator:
             raise LookupError(f"Project not found: {project_id}")
         return record
 
-    def record_authentication_success(self, project_id: str, actor: ActorContext) -> None:
+    def record_authentication_success(
+        self,
+        project_id: str,
+        actor: ActorContext,
+        *,
+        auth_source: str = "token",
+        auth_mode: str = "bearer",
+    ) -> None:
         try:
             record = self._get_record_or_raise(project_id)
         except LookupError:
             return
+        auth_metadata = {"auth_source": auth_source, "auth_mode": auth_mode}
         self._record_event(
             record,
             event_type=HistoryEventType.AUTHENTICATION_SUCCEEDED,
             actor=actor,
             reason="Authentication succeeded.",
+            metadata=auth_metadata,
         )
         self._record_event(
             record,
             event_type=HistoryEventType.ACTOR_RESOLVED,
             actor=actor,
             reason="Actor resolved from authentication context.",
+            metadata=auth_metadata,
         )
         self.repository.save(record)
 
-    def record_authentication_failure(self, project_id: str, reason: str) -> None:
+    def record_authentication_failure(
+        self,
+        project_id: str,
+        reason: str,
+        *,
+        auth_source: str = "token",
+        auth_mode: str = "bearer",
+    ) -> None:
         try:
             record = self._get_record_or_raise(project_id)
         except LookupError:
@@ -759,6 +1371,7 @@ class PMOrchestrator:
                 actor_type=ActorType.HUMAN,
             ),
             reason=reason,
+            metadata={"auth_source": auth_source, "auth_mode": auth_mode},
         )
         self.repository.save(record)
 
@@ -1355,6 +1968,7 @@ class PMOrchestrator:
 
     def get_project_audit(self, project_id: str) -> ProjectAudit:
         record = self._get_record_or_raise(project_id)
+        stage_summary = self._build_department_stage_summary(record)
         return ProjectAudit(
             project_id=record.project.id,
             status=record.project.status,
@@ -1363,5 +1977,7 @@ class PMOrchestrator:
             approvals=record.approvals,
             reviews=record.reviews,
             checkpoints=record.checkpoints,
+            department_stage_summary=stage_summary,
+            department_stage_totals=self._build_department_stage_totals(stage_summary),
         )
 

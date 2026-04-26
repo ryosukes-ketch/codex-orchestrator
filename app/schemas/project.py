@@ -147,6 +147,7 @@ class HistoryEventType(str, Enum):
     REPLANNING_STARTED = "replanning_started"
     RESUME_TRIGGERED = "resume_triggered"
     TASK_STATUS_CHANGED = "task_status_changed"
+    DEPARTMENT_STAGE_EXECUTED = "department_stage_executed"
 
 
 class HistoryEvent(BaseModel):
@@ -185,6 +186,37 @@ class OrchestrationResult(BaseModel):
     summary: ProjectSummary
 
 
+class DepartmentStageSummary(BaseModel):
+    department: str
+    stage_name: str
+    sequence: int = 0
+    parent_stage_name: str = ""
+    execution_count: int = 0
+    success_count: int = 0
+    failure_count: int = 0
+    fallback_count: int = 0
+    llm_transport_fallback_count: int = 0
+    failure_reasons: list[str] = Field(default_factory=list)
+    effective_providers: list[str] = Field(default_factory=list)
+    effective_models: list[str] = Field(default_factory=list)
+    llm_endpoints: list[str] = Field(default_factory=list)
+    llm_http_statuses: list[int] = Field(default_factory=list)
+    llm_error_kinds: list[str] = Field(default_factory=list)
+    llm_response_modes: list[str] = Field(default_factory=list)
+
+
+class DepartmentStageTotals(BaseModel):
+    total_stage_executions: int = 0
+    total_successes: int = 0
+    total_failures: int = 0
+    total_fallbacks: int = 0
+    total_llm_transport_fallbacks: int = 0
+    departments_covered: list[str] = Field(default_factory=list)
+    llm_endpoints_observed: list[str] = Field(default_factory=list)
+    has_failures: bool = False
+    has_fallbacks: bool = False
+
+
 class ProjectAudit(BaseModel):
     project_id: str
     status: ProjectStatus
@@ -193,3 +225,5 @@ class ProjectAudit(BaseModel):
     approvals: list[ApprovalRequest] = Field(default_factory=list)
     reviews: list[Review] = Field(default_factory=list)
     checkpoints: list[Checkpoint] = Field(default_factory=list)
+    department_stage_summary: list[DepartmentStageSummary] = Field(default_factory=list)
+    department_stage_totals: DepartmentStageTotals = Field(default_factory=DepartmentStageTotals)

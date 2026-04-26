@@ -1,5 +1,12 @@
 from app.services.approval import ApprovalPolicy
-from app.services.auth import AuthenticationError, DevTokenAuthService, get_auth_service
+from app.services.auth import (
+    AuthenticationError,
+    AuthService,
+    CommercialTokenAuthService,
+    DevTokenAuthService,
+    TokenMapAuthService,
+    get_auth_service,
+)
 from app.services.continuation import (
     ContinuationAssessment,
     ContinuationContext,
@@ -47,6 +54,8 @@ from app.services.work_order import (
 __all__ = [
     "ApprovalPolicy",
     "AuthenticationError",
+    "AuthService",
+    "CommercialTokenAuthService",
     "ContinuationAssessment",
     "ContinuationContext",
     "ContinuationDecision",
@@ -80,4 +89,5 @@ __all__ = [
     "WorkOrderInput",
     "WorkOrderVerification",
     "build_work_order_draft",
+    "TokenMapAuthService",
 ]

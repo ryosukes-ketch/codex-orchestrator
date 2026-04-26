@@ -1,5 +1,9 @@
 import pytest
 
+from app.llm.base import LLMClient
+from app.llm.mock_client import MockLLMClient
+from app.llm.openclaw_client import OpenClawLLMClient
+from app.llm.registry import DepartmentRegistry
 from app.orchestrator.service import PMOrchestrator
 from app.schemas.brief import ProjectBrief
 from app.schemas.project import (
@@ -8,6 +12,7 @@ from app.schemas.project import (
     ApprovalActionType,
     ApprovalRequest,
     ApprovalStatus,
+    Department,
     HistoryEventType,
     ProjectPolicy,
     ProjectPolicyActionRule,
@@ -1175,6 +1180,553 @@ def test_audit_contains_structured_history() -> None:
     first_event = audit.events[0]
     assert first_event.event_type == HistoryEventType.STATE_TRANSITION
     assert first_event.actor_role is not None
+
+
+def test_audit_contains_internal_stage_events_for_all_department_pipelines() -> None:
+    orchestrator = PMOrchestrator()
+    result = orchestrator.run(_brief(), trend_provider_name="mock")
+
+    audit = orchestrator.get_project_audit(result.record.project.id)
+    stage_events = [
+        event
+        for event in audit.events
+        if event.event_type == HistoryEventType.DEPARTMENT_STAGE_EXECUTED
+    ]
+    assert stage_events
+
+    research_events = [
+        event for event in stage_events if event.metadata.get("department") == "research"
+    ]
+    design_events = [
+        event for event in stage_events if event.metadata.get("department") == "design"
+    ]
+    build_events = [event for event in stage_events if event.metadata.get("department") == "build"]
+    review_events = [
+        event for event in stage_events if event.metadata.get("department") == "review"
+    ]
+
+    assert [event.metadata.get("stage_name") for event in research_events] == [
+        "ScopeFraming",
+        "EvidenceDraft",
+        "RiskChallenge",
+    ]
+    assert [event.metadata.get("sequence") for event in research_events] == [1, 2, 3]
+    assert [event.metadata.get("parent_stage_name") for event in research_events] == [
+        "",
+        "ScopeFraming",
+        "EvidenceDraft",
+    ]
+
+    assert [event.metadata.get("stage_name") for event in design_events] == [
+        "ArchitectureDraft",
+        "ConstraintCheck",
+        "DecisionFinalizer",
+    ]
+    assert [event.metadata.get("sequence") for event in design_events] == [1, 2, 3]
+    assert [event.metadata.get("parent_stage_name") for event in design_events] == [
+        "",
+        "ArchitectureDraft",
+        "ConstraintCheck",
+    ]
+
+    assert [event.metadata.get("stage_name") for event in build_events] == [
+        "Architect",
+        "Coder",
+        "Tester",
+    ]
+    assert [event.metadata.get("sequence") for event in build_events] == [1, 2, 3]
+    assert [event.metadata.get("parent_stage_name") for event in build_events] == [
+        "",
+        "Architect",
+        "Coder",
+    ]
+
+    assert [event.metadata.get("stage_name") for event in review_events] == [
+        "InitialReview",
+        "CounterCheck",
+        "FinalJudgment",
+    ]
+    assert [event.metadata.get("sequence") for event in review_events] == [1, 2, 3]
+    assert [event.metadata.get("parent_stage_name") for event in review_events] == [
+        "",
+        "InitialReview",
+        "CounterCheck",
+    ]
+
+    for event in research_events + design_events + build_events + review_events:
+        assert event.metadata.get("effective_provider") == "mock"
+        assert event.metadata.get("effective_model") == "mock"
+        assert event.metadata.get("llm_response_mode") in {"fixed", "schema_aware_default"}
+        assert isinstance(event.metadata.get("fallback_used"), bool)
+        assert isinstance(event.metadata.get("stage_success"), bool)
+        if event.metadata.get("stage_success") is False:
+            assert event.metadata.get("stage_failure_reason", "") != ""
+
+    summary = audit.department_stage_summary
+    assert summary
+    assert len(summary) == 12
+    totals = audit.department_stage_totals
+    assert totals.total_stage_executions == 12
+    assert totals.total_successes + totals.total_failures == totals.total_stage_executions
+    assert sorted(totals.departments_covered) == ["build", "design", "research", "review"]
+    assert totals.total_llm_transport_fallbacks >= 0
+    assert isinstance(totals.llm_endpoints_observed, list)
+    architect = next(
+        item
+        for item in summary
+        if item.department == "build" and item.stage_name == "Architect"
+    )
+    assert architect.sequence == 1
+    assert architect.execution_count == 1
+    assert architect.success_count + architect.failure_count == architect.execution_count
+    assert 0 <= architect.fallback_count <= architect.execution_count
+    assert "mock" in architect.effective_providers
+    assert "mock" in architect.effective_models
+    assert "schema_aware_default" in architect.llm_response_modes
+
+
+def test_audit_stage_events_include_failure_reason_when_llm_stage_fails() -> None:
+    class _FailingLLM(LLMClient):
+        def complete(self, system: str, user: str) -> str:
+            raise RuntimeError("forced-failure")
+
+    registry = DepartmentRegistry(
+        clients={
+            Department.RESEARCH: _FailingLLM(),
+            Department.DESIGN: MockLLMClient(),
+            Department.BUILD: MockLLMClient(),
+            Department.REVIEW: MockLLMClient(),
+        }
+    )
+    orchestrator = PMOrchestrator(department_registry=registry)
+
+    result = orchestrator.run(_brief(), trend_provider_name="mock")
+    assert result.summary.status == ProjectStatus.COMPLETED
+
+    audit = orchestrator.get_project_audit(result.record.project.id)
+    research_stage_events = [
+        event
+        for event in audit.events
+        if event.event_type == HistoryEventType.DEPARTMENT_STAGE_EXECUTED
+        and event.metadata.get("department") == "research"
+    ]
+    assert len(research_stage_events) == 3
+    assert all(event.metadata.get("stage_success") is False for event in research_stage_events)
+    assert all(event.metadata.get("fallback_used") is True for event in research_stage_events)
+    assert all(
+        event.metadata.get("stage_failure_reason") == "llm_exception:RuntimeError"
+        for event in research_stage_events
+    )
+
+    summary = [
+        item for item in audit.department_stage_summary if item.department == "research"
+    ]
+    assert len(summary) == 3
+    totals = audit.department_stage_totals
+    assert totals.total_stage_executions == 12
+    assert totals.total_failures >= 3
+    assert totals.has_failures is True
+    assert totals.has_fallbacks is True
+    assert all(item.execution_count == 1 for item in summary)
+    assert all(item.success_count == 0 for item in summary)
+    assert all(item.failure_count == 1 for item in summary)
+    assert all(item.fallback_count == 1 for item in summary)
+    assert all("llm_exception:RuntimeError" in item.failure_reasons for item in summary)
+
+
+def test_audit_stage_events_capture_openclaw_upstream_rejection_metadata() -> None:
+    class _RejectionLLM(OpenClawLLMClient):
+        def __init__(self) -> None:
+            super().__init__(agent_id="default", base_url="http://127.0.0.1:18789/v1")
+
+        def complete(self, system: str, user: str) -> str:
+            self._last_call_metadata = {
+                "gateway_endpoint": "chat/completions",
+                "gateway_status_code": 200,
+                "gateway_fallback_used": False,
+                "gateway_error_kind": "upstream_rejection",
+                "gateway_content_kind": "upstream_rejection",
+                "gateway_backend_override": "openai-codex/gpt-5.2",
+                "gateway_upstream_rejection": True,
+                "gateway_upstream_provider": "anthropic",
+                "gateway_upstream_rejection_reason": "credit_balance_too_low",
+                "response_mode": "plain_text_upstream_rejection",
+            }
+            return (
+                "LLM request rejected: Your credit balance is too low to access "
+                "the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."
+            )
+
+    registry = DepartmentRegistry(
+        clients={
+            Department.RESEARCH: _RejectionLLM(),
+            Department.DESIGN: MockLLMClient(),
+            Department.BUILD: MockLLMClient(),
+            Department.REVIEW: MockLLMClient(),
+        }
+    )
+    orchestrator = PMOrchestrator(department_registry=registry)
+
+    result = orchestrator.run(_brief(), trend_provider_name="mock")
+    assert result.summary.status == ProjectStatus.IN_PROGRESS
+    assert result.summary.artifact_count == 0
+    assert (
+        "Resolve the OpenClaw upstream provider credit/policy blocker."
+        in result.summary.next_steps
+    )
+    assert _task_by_id(result, "task-research").status == TaskStatus.BLOCKED
+    assert _task_by_id(result, "task-design").status == TaskStatus.PENDING
+
+    audit = orchestrator.get_project_audit(result.record.project.id)
+    research_stage_events = [
+        event
+        for event in audit.events
+        if event.event_type == HistoryEventType.DEPARTMENT_STAGE_EXECUTED
+        and event.metadata.get("department") == "research"
+    ]
+    assert len(research_stage_events) == 3
+    assert all(
+        event.metadata.get("stage_failure_reason")
+        == "upstream_rejection:anthropic:credit_balance_too_low"
+        for event in research_stage_events
+    )
+    assert all(
+        event.metadata.get("llm_error_kind") == "upstream_rejection"
+        for event in research_stage_events
+    )
+    assert all(
+        event.metadata.get("llm_content_kind") == "upstream_rejection"
+        for event in research_stage_events
+    )
+    assert all(
+        event.metadata.get("llm_backend_override") == "openai-codex/gpt-5.2"
+        for event in research_stage_events
+    )
+    assert all(
+        event.metadata.get("llm_upstream_provider") == "anthropic"
+        for event in research_stage_events
+    )
+    assert all(
+        event.metadata.get("llm_upstream_rejection_reason") == "credit_balance_too_low"
+        for event in research_stage_events
+    )
+
+    summary = [
+        item for item in audit.department_stage_summary if item.department == "research"
+    ]
+    assert len(summary) == 3
+    assert all(
+        "upstream_rejection:anthropic:credit_balance_too_low" in item.failure_reasons
+        for item in summary
+    )
+    assert all("upstream_rejection" in item.llm_error_kinds for item in summary)
+    assert all("plain_text_upstream_rejection" in item.llm_response_modes for item in summary)
+
+
+def test_openclaw_all_stage_non_json_response_blocks_instead_of_persisting_fallback_artifact(
+) -> None:
+    class _PlainTextOpenClawLLM(OpenClawLLMClient):
+        def __init__(self) -> None:
+            super().__init__(agent_id="default", base_url="http://127.0.0.1:18789/v1")
+
+        def complete(self, system: str, user: str) -> str:
+            self._last_call_metadata = {
+                "gateway_endpoint": "chat/completions",
+                "gateway_status_code": 200,
+                "gateway_fallback_used": False,
+                "gateway_content_kind": "plain_text",
+                "response_mode": "plain_text",
+            }
+            return "this is not json"
+
+    registry = DepartmentRegistry(
+        clients={
+            Department.RESEARCH: _PlainTextOpenClawLLM(),
+            Department.DESIGN: MockLLMClient(),
+            Department.BUILD: MockLLMClient(),
+            Department.REVIEW: MockLLMClient(),
+        }
+    )
+    orchestrator = PMOrchestrator(department_registry=registry)
+
+    result = orchestrator.run(_brief(), trend_provider_name="mock")
+
+    assert result.summary.status == ProjectStatus.IN_PROGRESS
+    assert result.summary.artifact_count == 0
+    assert _task_by_id(result, "task-research").status == TaskStatus.BLOCKED
+    assert (
+        "Restore valid JSON output from the OpenClaw department stages before retrying."
+        in result.summary.next_steps
+    )
+
+    audit = orchestrator.get_project_audit(result.record.project.id)
+    research_stage_events = [
+        event
+        for event in audit.events
+        if event.event_type == HistoryEventType.DEPARTMENT_STAGE_EXECUTED
+        and event.metadata.get("department") == "research"
+    ]
+    assert len(research_stage_events) == 3
+    assert all(
+        event.metadata.get("stage_failure_reason") == "non_json_response"
+        for event in research_stage_events
+    )
+
+
+def test_review_receives_live_run_evidence_artifact() -> None:
+    class _CaptureReviewLLM(MockLLMClient):
+        def __init__(self) -> None:
+            super().__init__()
+            self.prompts: list[str] = []
+
+        def complete(self, system: str, user: str) -> str:
+            self.prompts.append(user)
+            return super().complete(system, user)
+
+    review_llm = _CaptureReviewLLM()
+    registry = DepartmentRegistry(
+        clients={
+            Department.RESEARCH: MockLLMClient(),
+            Department.DESIGN: MockLLMClient(),
+            Department.BUILD: MockLLMClient(),
+            Department.REVIEW: review_llm,
+        }
+    )
+    orchestrator = PMOrchestrator(department_registry=registry)
+
+    result = orchestrator.run(_brief(), trend_provider_name="mock")
+
+    assert result.summary.status == ProjectStatus.COMPLETED
+    assert review_llm.prompts
+    review_prompt = review_llm.prompts[0]
+    assert "live_run_evidence" in review_prompt
+    assert "\"stage_totals\"" in review_prompt
+    assert "\"artifact_count_before_review\"" in review_prompt
+    assert "\"department_stage_executed_events\"" in review_prompt
+    assert "\"post_run_artifact_map\"" in review_prompt
+
+
+def test_non_blocking_changes_requested_is_normalized_to_approved() -> None:
+    class _StructuredPipelineLLM(LLMClient):
+        def complete(self, system: str, user: str) -> str:
+            lowered = system.lower()
+            if any(
+                marker in lowered
+                for marker in ("research planner", "research analyst", "risk challenger")
+            ):
+                return (
+                    '{"summary":"research","risks":["none"],"assumptions":["bounded"],'
+                    '"research_areas":["core"]}'
+                )
+            if any(
+                marker in lowered
+                for marker in (
+                    "solution architect drafting",
+                    "constraint auditor",
+                    "technical decision finalizer",
+                )
+            ):
+                return (
+                    '{"architecture":"arch","components":["api"],"constraints":["python"],'
+                    '"technical_decisions":["typed-models"]}'
+                )
+            if "software architect" in lowered:
+                return (
+                    '{"architecture":"arch","components":["api"],"interfaces":["http"],'
+                    '"risks":["low"]}'
+                )
+            if "senior software engineer" in lowered:
+                return (
+                    '{"status":"ready","scope":"backend","implementation_steps":["code"],'
+                    '"estimated_effort":"small","corrections":[]}'
+                )
+            if "qa engineer" in lowered:
+                return (
+                    '{"status":"ready","scope":"backend","implementation_steps":["test"],'
+                    '"estimated_effort":"small","risks":["low"],"test_strategy":["unit"]}'
+                )
+            return '{"verdict":"approved","findings":[],"summary":"ok"}'
+
+    class _NonBlockingReviewLLM(LLMClient):
+        def complete(self, system: str, user: str) -> str:
+            return (
+                '{"verdict":"changes_requested","findings":["Consider tightening wording '
+                'in summary."],"summary":"Non-blocking polish only."}'
+            )
+
+    registry = DepartmentRegistry(
+        clients={
+            Department.RESEARCH: _StructuredPipelineLLM(),
+            Department.DESIGN: _StructuredPipelineLLM(),
+            Department.BUILD: _StructuredPipelineLLM(),
+            Department.REVIEW: _NonBlockingReviewLLM(),
+        }
+    )
+    orchestrator = PMOrchestrator(department_registry=registry)
+
+    result = orchestrator.run(_brief(), trend_provider_name="mock")
+
+    assert result.summary.status == ProjectStatus.COMPLETED
+    review = result.record.reviews[-1]
+    assert review.verdict == "approved"
+    assert any(item.startswith("[non_blocking]") for item in review.findings)
+
+
+def test_non_blocking_changes_requested_after_reject_replan_is_normalized_to_approved() -> None:
+    class _StructuredPipelineLLM(LLMClient):
+        def complete(self, system: str, user: str) -> str:
+            lowered = system.lower()
+            if any(
+                marker in lowered
+                for marker in ("research planner", "research analyst", "risk challenger")
+            ):
+                return (
+                    '{"summary":"research","risks":["none"],"assumptions":["bounded"],'
+                    '"research_areas":["core"]}'
+                )
+            if any(
+                marker in lowered
+                for marker in (
+                    "solution architect drafting",
+                    "constraint auditor",
+                    "technical decision finalizer",
+                )
+            ):
+                return (
+                    '{"architecture":"arch","components":["api"],"constraints":["python"],'
+                    '"technical_decisions":["typed-models"]}'
+                )
+            if "software architect" in lowered:
+                return (
+                    '{"architecture":"arch","components":["api"],"interfaces":["http"],'
+                    '"risks":["low"]}'
+                )
+            if "senior software engineer" in lowered:
+                return (
+                    '{"status":"ready","scope":"backend","implementation_steps":["code"],'
+                    '"estimated_effort":"small","corrections":[]}'
+                )
+            if "qa engineer" in lowered:
+                return (
+                    '{"status":"ready","scope":"backend","implementation_steps":["test"],'
+                    '"estimated_effort":"small","risks":["low"],"test_strategy":["unit"]}'
+                )
+            return '{"verdict":"approved","findings":[],"summary":"ok"}'
+
+    class _RejectPathNonBlockingReviewLLM(LLMClient):
+        def complete(self, system: str, user: str) -> str:
+            return (
+                '{"verdict":"changes_requested","findings":["Blocking: Missing standalone '
+                'live-path reject artifact bundle in review snapshot."],'
+                '"summary":"Reject-path evidence is not bundled as standalone artifacts."}'
+            )
+
+    registry = DepartmentRegistry(
+        clients={
+            Department.RESEARCH: _StructuredPipelineLLM(),
+            Department.DESIGN: _StructuredPipelineLLM(),
+            Department.BUILD: _StructuredPipelineLLM(),
+            Department.REVIEW: _RejectPathNonBlockingReviewLLM(),
+        }
+    )
+    orchestrator = PMOrchestrator(department_registry=registry)
+
+    waiting = orchestrator.run(_brief(), trend_provider_name="gemini-flash-lite-latest")
+    assert waiting.summary.status == ProjectStatus.WAITING_APPROVAL
+
+    rejected = orchestrator.reject_approval(
+        project_id=waiting.record.project.id,
+        rejected_actions=["external_api_send"],
+        actor=_approver(),
+        reason="Security policy",
+        note="Reject for revision lane",
+    )
+    assert rejected.summary.status == ProjectStatus.REVISION_REQUESTED
+
+    resumed = orchestrator.resume_from_revision(
+        project_id=waiting.record.project.id,
+        resume_mode=RevisionResumeMode.REPLANNING,
+        actor=_operator(),
+        reason="Resume replanning after rejection",
+        trend_provider_name="mock",
+    )
+    assert resumed.summary.status == ProjectStatus.READY_FOR_PLANNING
+
+    replanned = orchestrator.start_replanning(
+        project_id=waiting.record.project.id,
+        actor=_operator(),
+        note="Restart replanning",
+        trend_provider_name="mock",
+    )
+
+    assert replanned.summary.status == ProjectStatus.COMPLETED
+    review = replanned.record.reviews[-1]
+    assert review.verdict == "approved"
+    assert any(item.startswith("[non_blocking]") for item in review.findings)
+
+
+def test_blocking_changes_requested_keeps_revision_requested_status() -> None:
+    class _StructuredPipelineLLM(LLMClient):
+        def complete(self, system: str, user: str) -> str:
+            lowered = system.lower()
+            if any(
+                marker in lowered
+                for marker in ("research planner", "research analyst", "risk challenger")
+            ):
+                return (
+                    '{"summary":"research","risks":["none"],"assumptions":["bounded"],'
+                    '"research_areas":["core"]}'
+                )
+            if any(
+                marker in lowered
+                for marker in (
+                    "solution architect drafting",
+                    "constraint auditor",
+                    "technical decision finalizer",
+                )
+            ):
+                return (
+                    '{"architecture":"arch","components":["api"],"constraints":["python"],'
+                    '"technical_decisions":["typed-models"]}'
+                )
+            if "software architect" in lowered:
+                return (
+                    '{"architecture":"arch","components":["api"],"interfaces":["http"],'
+                    '"risks":["low"]}'
+                )
+            if "senior software engineer" in lowered:
+                return (
+                    '{"status":"ready","scope":"backend","implementation_steps":["code"],'
+                    '"estimated_effort":"small","corrections":[]}'
+                )
+            if "qa engineer" in lowered:
+                return (
+                    '{"status":"ready","scope":"backend","implementation_steps":["test"],'
+                    '"estimated_effort":"small","risks":["low"],"test_strategy":["unit"]}'
+                )
+            return '{"verdict":"approved","findings":[],"summary":"ok"}'
+
+    class _BlockingReviewLLM(LLMClient):
+        def complete(self, system: str, user: str) -> str:
+            return (
+                '{"verdict":"changes_requested","findings":["Security vulnerability found '
+                'in build output."],"summary":"Blocking defect."}'
+            )
+
+    registry = DepartmentRegistry(
+        clients={
+            Department.RESEARCH: _StructuredPipelineLLM(),
+            Department.DESIGN: _StructuredPipelineLLM(),
+            Department.BUILD: _StructuredPipelineLLM(),
+            Department.REVIEW: _BlockingReviewLLM(),
+        }
+    )
+    orchestrator = PMOrchestrator(department_registry=registry)
+
+    result = orchestrator.run(_brief(), trend_provider_name="mock")
+
+    assert result.summary.status == ProjectStatus.REVISION_REQUESTED
+    assert result.record.reviews[-1].verdict == "changes_requested"
 
 
 def test_coerce_actor_from_none_string_and_context() -> None:

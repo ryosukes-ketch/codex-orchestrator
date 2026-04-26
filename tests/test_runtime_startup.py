@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from app.api.dependencies import clear_auth_service_dependency_caches
 from app.api.main import create_app
 from app.state import repository as repository_module
-from app.state.repository import InMemoryProjectRepository
+from app.state.repository import InMemoryProjectRepository, SqliteProjectRepository
 
 
 @pytest.fixture(autouse=True)
@@ -129,6 +129,81 @@ def test_runtime_custom_token_seed_applies_to_actor_resolution(monkeypatch) -> N
         event["event_type"] == "approval_approved" and event["actor"] == "ops-user"
         for event in payload["events"]
     )
+
+
+def test_runtime_commercial_token_mode_accepts_authorized_token_and_records_actor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AUTH_SERVICE_MODE", "commercial_token")
+    monkeypatch.setenv("AUTH_ENABLED", "true")
+    monkeypatch.setenv("AUTH_TOKEN_SEED", "commercial-token:commercial-approver:approver:human")
+    monkeypatch.setenv("DEV_AUTH_TOKEN_SEED", "dev-token:dev-approver:approver:human")
+
+    client = TestClient(create_app())
+    project_id = _run_waiting_project(client)
+    resumed = client.post(
+        "/orchestrator/resume/approval",
+        json={
+            "project_id": project_id,
+            "approved_actions": ["external_api_send"],
+            "trend_provider": "gemini",
+        },
+        headers={"Authorization": "Bearer commercial-token"},
+    )
+    assert resumed.status_code == 200
+    assert resumed.json()["summary"]["status"] == "completed"
+
+    audit = client.get(f"/projects/{project_id}/audit")
+    assert audit.status_code == 200
+    payload = audit.json()
+    assert any(
+        event["event_type"] == "actor_resolved" and event["actor"] == "commercial-approver"
+        for event in payload["events"]
+    )
+    assert any(
+        event["event_type"] == "approval_approved" and event["actor"] == "commercial-approver"
+        for event in payload["events"]
+    )
+
+
+def test_runtime_commercial_token_mode_rejects_missing_or_invalid_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AUTH_SERVICE_MODE", "commercial_token")
+    monkeypatch.setenv("AUTH_ENABLED", "true")
+    monkeypatch.setenv("AUTH_TOKEN_SEED", "commercial-token:commercial-approver:approver:human")
+    monkeypatch.setenv("DEV_AUTH_ENABLED", "false")
+
+    client = TestClient(create_app())
+    project_id = _run_waiting_project(client)
+
+    missing = client.post(
+        "/orchestrator/resume/approval",
+        json={
+            "project_id": project_id,
+            "approved_actions": ["external_api_send"],
+            "trend_provider": "gemini",
+        },
+    )
+    invalid = client.post(
+        "/orchestrator/resume/approval",
+        json={
+            "project_id": project_id,
+            "approved_actions": ["external_api_send"],
+            "trend_provider": "gemini",
+        },
+        headers={"Authorization": "Bearer wrong-token"},
+    )
+    assert missing.status_code == 401
+    assert invalid.status_code == 401
+
+    audit = client.get(f"/projects/{project_id}/audit")
+    assert audit.status_code == 200
+    payload = audit.json()
+    auth_failed_events = [event for event in payload["events"] if event["event_type"] == "authentication_failed"]
+    assert len(auth_failed_events) >= 2
+    assert any(event["reason"] == "Missing Authorization header." for event in auth_failed_events)
+    assert any(event["reason"] == "Invalid bearer token." for event in auth_failed_events)
 
 
 def test_create_app_reloads_auth_config_on_env_flip_without_manual_cache_clear(
@@ -332,6 +407,29 @@ def test_create_app_reinitializes_in_memory_repository_state_between_instances(
 
     second_audit = second_client.get(f"/projects/{project_id}/audit")
     assert second_audit.status_code == 404
+
+
+def test_create_app_sqlite_repository_persists_state_across_fresh_instances(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    sqlite_path = tmp_path / "startup.sqlite3"
+    monkeypatch.setenv("STATE_BACKEND", "sqlite")
+    monkeypatch.setenv("SQLITE_DB_PATH", str(sqlite_path))
+    monkeypatch.setenv("STATE_BACKEND_STRICT", "true")
+    monkeypatch.setenv("DEV_AUTH_ENABLED", "true")
+
+    first_client = TestClient(create_app())
+    project_id = _run_waiting_project(first_client)
+    first_audit = first_client.get(f"/projects/{project_id}/audit")
+    assert first_audit.status_code == 200
+
+    second_app = create_app()
+    assert isinstance(second_app.state.orchestrator.repository, SqliteProjectRepository)
+    second_client = TestClient(second_app)
+    persisted_audit = second_client.get(f"/projects/{project_id}/audit")
+    assert persisted_audit.status_code == 200
+    assert persisted_audit.json()["status"] == "waiting_approval"
 
 
 def test_create_app_treats_malformed_auth_enabled_as_secure_default_enabled(

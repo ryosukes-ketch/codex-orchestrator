@@ -13,6 +13,7 @@ from app.state import repository as repository_module
 from app.state.repository import (
     InMemoryProjectRepository,
     PostgresProjectRepository,
+    SqliteProjectRepository,
     _is_true,
     _parse_strict_flag,
     create_repository_from_env,
@@ -46,6 +47,75 @@ def test_repository_factory_falls_back_when_postgres_not_configured(
     monkeypatch.delenv("STATE_BACKEND_STRICT", raising=False)
     repository = create_repository_from_env()
     assert isinstance(repository, InMemoryProjectRepository)
+
+
+def test_repository_factory_uses_sqlite_backend(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    sqlite_path = tmp_path / "factory.sqlite3"
+    monkeypatch.setenv("STATE_BACKEND", "sqlite")
+    monkeypatch.setenv("SQLITE_DB_PATH", str(sqlite_path))
+    monkeypatch.setenv("STATE_BACKEND_STRICT", "true")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    repository = create_repository_from_env()
+
+    assert isinstance(repository, SqliteProjectRepository)
+    assert sqlite_path.exists()
+
+
+def test_repository_factory_supports_sqlite3_alias(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    sqlite_path = tmp_path / "factory-alias.sqlite3"
+    monkeypatch.setenv("STATE_BACKEND", "sqlite3")
+    monkeypatch.setenv("SQLITE_DB_PATH", str(sqlite_path))
+    monkeypatch.setenv("STATE_BACKEND_STRICT", "true")
+
+    repository = create_repository_from_env()
+
+    assert isinstance(repository, SqliteProjectRepository)
+
+
+def test_repository_factory_falls_back_when_sqlite_init_fails_non_strict(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _FailingSqliteRepository:
+        def __init__(self, db_path: str) -> None:
+            self.db_path = db_path
+
+        def initialize_schema(self) -> None:
+            raise RuntimeError("sqlite unavailable")
+
+    monkeypatch.setenv("STATE_BACKEND", "sqlite")
+    monkeypatch.setenv("SQLITE_DB_PATH", "tmp/test.sqlite3")
+    monkeypatch.setenv("STATE_BACKEND_STRICT", "false")
+    monkeypatch.setattr(repository_module, "SqliteProjectRepository", _FailingSqliteRepository)
+
+    repository = create_repository_from_env()
+
+    assert isinstance(repository, InMemoryProjectRepository)
+
+
+def test_repository_factory_sqlite_strict_mode_reraises_init_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _FailingSqliteRepository:
+        def __init__(self, db_path: str) -> None:
+            self.db_path = db_path
+
+        def initialize_schema(self) -> None:
+            raise RuntimeError("sqlite unavailable")
+
+    monkeypatch.setenv("STATE_BACKEND", "sqlite")
+    monkeypatch.setenv("SQLITE_DB_PATH", "tmp/test.sqlite3")
+    monkeypatch.setenv("STATE_BACKEND_STRICT", "true")
+    monkeypatch.setattr(repository_module, "SqliteProjectRepository", _FailingSqliteRepository)
+
+    with pytest.raises(RuntimeError, match="sqlite unavailable"):
+        create_repository_from_env()
 
 
 def test_repository_factory_strict_mode_raises_without_dsn(
